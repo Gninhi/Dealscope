@@ -5,11 +5,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { TargetCompany } from '@/lib/types';
-import { formatCurrency, getScoreBgColor } from '@/lib/utils';
+import type { CompanyWithRelations } from '@/lib/types';
+import { formatCurrency, getScoreColor } from '@/lib/utils';
 
 interface SortablePipelineCardProps {
-  company: TargetCompany;
+  company: CompanyWithRelations;
   isDragging: boolean;
   onClick: () => void;
 }
@@ -33,7 +33,7 @@ export default function SortablePipelineCard({ company, isDragging, onClick }: S
           <h4 className="text-sm font-semibold text-[var(--text-primary)] truncate">{company.name}</h4>
           <p className="text-xs text-[var(--text-secondary)] mt-0.5">{company.sector}</p>
           <div className="flex items-center justify-between mt-2.5">
-            <Badge className={`text-[10px] ${getScoreBgColor(company.icpScore)}`}>{company.icpScore}</Badge>
+            <Badge className={`text-[10px] ${getScoreColor(company.icpScore)}`}>{company.icpScore}</Badge>
             <span className="text-[10px] text-[var(--text-tertiary)]">{formatCurrency(company.revenue)}</span>
           </div>
           {company.signals && company.signals.length > 0 && (
