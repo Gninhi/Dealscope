@@ -1,0 +1,131 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import ZAI from 'z-ai-web-dev-sdk';
+
+// POST /api/chat - SSE streaming chat
+export async function POST(request: NextRequest) {
+  try {
+    const { message } = await request.json();
+
+    if (!message) {
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    }
+
+    // Ensure workspace exists
+    let workspace = await db.workspace.findFirst();
+    if (!workspace) {
+      workspace = await db.workspace.create({
+        data: { name: 'Default Workspace', slug: 'default-workspace' },
+      });
+    }
+
+    // Save user message
+    await db.chatMessage.create({
+      data: {
+        workspaceId: workspace.id,
+        role: 'user',
+        content: message,
+      },
+    });
+
+    // Get recent chat history for context
+    const recentMessages = await db.chatMessage.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    const contextMessages = recentMessages
+      .reverse()
+      .map(m => ({
+        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
+        content: m.content,
+      }));
+
+    const systemPrompt = `Tu es DealScope AI, un assistant intelligent spécialisé dans les fusions et acquisitions (M&A) en France. Tu aides les analystes M&A à:
+
+1. Analyser des entreprises cibles potentielles
+2. Évaluer la pertinence des cibles par rapport aux profils ICP (Ideal Customer Profile)
+3. Identifier des signaux d'opportunité (croissance, changement de direction, financement, etc.)
+4. Fournir des insights sur les secteurs d'activité français
+5. Aider à la qualification de cibles et à la préparation d'approches
+
+Tu parles français et tu es concis et professionnel. Quand on te donne des données financières, analyse-les avec rigueur. Si on te demande de chercher des entreprises, suggère des critères de recherche pertinents.
+
+Réponds toujours en français.`;
+
+    // Create SSE stream
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+
+        try {
+          const zai = await ZAI.create();
+
+          const completion = await zai.chat.completions.create({
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...contextMessages,
+            ],
+          });
+
+          const content = completion.choices?.[0]?.message?.content || 'Je n\'ai pas pu générer de réponse.';
+
+          // Save assistant message
+          await db.chatMessage.create({
+            data: {
+              workspaceId: workspace!.id,
+              role: 'assistant',
+              content,
+            },
+          });
+
+          // Send as SSE
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        } catch (error) {
+          console.error('AI chat error:', error);
+          const errorMsg = 'Désolé, une erreur est survenue lors de la génération de la réponse.';
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: errorMsg })}\n\n`));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  } catch (error) {
+    console.error('Chat error:', error);
+    return NextResponse.json({ error: 'Chat failed' }, { status: 500 });
+  }
+}
+
+// GET /api/chat - get chat history
+export async function GET() {
+  try {
+    let workspace = await db.workspace.findFirst();
+    if (!workspace) {
+      workspace = await db.workspace.create({
+        data: { name: 'Default Workspace', slug: 'default-workspace' },
+      });
+    }
+
+    const messages = await db.chatMessage.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+
+    return NextResponse.json(messages);
+  } catch (error) {
+    console.error('Error fetching chat history:', error);
+    return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
+  }
+}

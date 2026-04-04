@@ -1,0 +1,74 @@
+[
+  {
+    "url": "https://posthog.com/handbook/growth/use-case-selling/observability",
+    "name": "Observability - Handbook - PostHog",
+    "snippet": "First observability tool: Early-stage company that hasn't invested in error tracking yet. PostHog's free tier (100K exceptions/month) lets them ... Missing: practices 2025",
+    "host_name": "posthog.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://posthog.com/docs/product-analytics/best-practices",
+    "name": "Product analytics best practices - Docs - PostHog",
+    "snippet": "2. Set up a reverse proxy. Tracking and ad blockers can prevent your events from being sent to PostHog. By setting up a reverse proxy, you can send events to ... Missing: observability onboarding 2025",
+    "host_name": "posthog.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.saasfactor.co/blogs/the-science-of-saas-onboarding-a-comprehensive-framework-for-reducing-friction-improving-activation-and-preventing-churn",
+    "name": "The Science of SaaS Onboarding: A Comprehensive Framework for",
+    "snippet": "Mixpanel for behavioral funnel analysis. Amplitude for cohort-based retention tracking. PostHog for open-source product analytics. Heap for ...",
+    "host_name": "www.saasfactor.co",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://productled.com/blog/5-best-practices-for-better-saas-user-onboarding",
+    "name": "SaaS onboarding best practices for 2025 [+ Checklist] | ProductLed",
+    "snippet": "In this article, you'll learn user onboarding best practices for SaaS companies, so users understand how your product can address their needs.",
+    "host_name": "productled.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.insaim.design/blog/saas-onboarding-best-practices-for-2025-examples",
+    "name": "Guide for SaaS onboarding. Best practices for 2025 + Checklist",
+    "snippet": "Master SaaS onboarding with 2025 best practices, examples, and metrics. Learn to design effective onboarding flows for mobile apps and B2B SaaS.",
+    "host_name": "www.insaim.design",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.statsig.com/perspectives/feature-flags-experimentation-pricing-comparison",
+    "name": "LaunchDarkly vs PostHog: Feature Flags, Experimentation  - Statsig",
+    "snippet": "LaunchDarkly vs PostHog: Compare feature flags, experimentation strategies, and pricing models for effective rollouts.",
+    "host_name": "www.statsig.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://userpilot.medium.com/posthog-analytics-2025-deep-dive-review-alternatives-86f888bccf71",
+    "name": "PostHog Analytics: 2025 Deep-Dive Review (+ Alternatives)",
+    "snippet": "​PostHog is an open-source, all-in-one platform built specifically for product engineers who need comprehensive behavioral insights without ... Missing: observability practices",
+    "host_name": "userpilot.medium.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.statsig.com/comparison/best-product-analytics-tools",
+    "name": "The Best 7 Product Analytics Tools in 2025 - Statsig",
+    "snippet": "PostHog stands out as an open-source product analytics platform that gives you complete control over your data through self-hosting options. The ...",
+    "host_name": "www.statsig.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  }
+]

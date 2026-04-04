@@ -1,0 +1,74 @@
+[
+  {
+    "url": "https://trycomp.ai/cloud-security-compliance",
+    "name": "Cloud Security Compliance Guide for SaaS Teams (2025)",
+    "snippet": "Dec 12, 2025 — It requires you to identify risks , use controls from Annex A (a catalog of 93 security controls), and maintain a continuous improvement process. Read more",
+    "host_name": "trycomp.ai",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://owasp.org/www-community/Threat_Modeling",
+    "name": "Threat Modeling",
+    "snippet": "Threat modeling works to identify, communicate, and understand threats and mitigations within the context of protecting something of value. Read more\nThreat modeling works to identify, communicate, and understand threats and mitigations within the context of protecting something of value. Missing: compliance audit",
+    "host_name": "owasp.org",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.instinctools.com/blog/saas-security-checklist",
+    "name": "SaaS Security Checklist and Best Practices in 2025",
+    "snippet": "Sep 7, 2023 — Here are the five most common SaaS threats that can imperil the overall security level of software applications. ... Threat modeling to uncover ... Read more",
+    "host_name": "www.instinctools.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://designrevision.com/blog/saas-security-checklist",
+    "name": "SaaS Security Checklist: 50+ Must-Haves for Every Stage",
+    "snippet": "Feb 19, 2026 — What are the biggest SaaS security risks in 2025 and 2026? Misconfigurations are the leading cause of SaaS security incidents, responsible for ... Read more",
+    "host_name": "designrevision.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://owasp.org/www-project-application-security-verification-standard",
+    "name": "OWASP Application Security Verification Standard (ASVS)",
+    "snippet": "[31 March 2025 ] ... Every engagement is tailored to the client priorities and threat model , and guided through a dedicated channel from scoping to free fix ... Read more",
+    "host_name": "owasp.org",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.networkintelligence.ai/blogs/saas-compliance-checklist",
+    "name": "SaaS Compliance Checklist: A Complete Guide (2025)",
+    "snippet": "Oct 31, 2025 — ... risks , aligning security practices with business objectives while adapting to evolving threats . Particularly important for organizations ... Read more",
+    "host_name": "www.networkintelligence.ai",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.scrut.io/post/saas-compliance",
+    "name": "How to master SaaS compliance in 2025",
+    "snippet": "Jul 24, 2025 — Group risks into categories— compliance gaps, security threats (e.g., ransomware, phishing), operational breakdowns, third-party exposures, and ... Read more",
+    "host_name": "www.scrut.io",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://zerothreat.ai/blog/owasp-top-10-2025-update",
+    "name": "OWASP Top 10 2025 Update: What's New and What",
+    "snippet": "Nov 21, 2025 — ZeroThreat helps teams keep up by continuously validating real-world risks by showing how threats behave when attacker-like behavior is ... Read more",
+    "host_name": "zerothreat.ai",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  }
+]

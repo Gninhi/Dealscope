@@ -1,0 +1,74 @@
+[
+  {
+    "url": "https://recherche-entreprises.api.gouv.fr/docs",
+    "name": "API Recherche d'entreprises - ReDoc - API.gouv",
+    "snippet": "L'API Recherche d'Entreprises permet à tout le monde retrouver une entreprise , une association, ou un service public en France. Elle propose un grand nombre ... Read more",
+    "host_name": "recherche-entreprises.api.gouv.fr",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://api.gouv.fr/les-api/api-recherche-entreprises",
+    "name": "API Recherche d'entreprises",
+    "snippet": "API Recherche d'entreprises est une des APIs du service public. Rechercher une entreprise française, par sa dénomination, ou son adresse.",
+    "host_name": "api.gouv.fr",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://entreprise.api.gouv.fr/developpeurs",
+    "name": "Un espace développeur - API Entreprise",
+    "snippet": "Voici la liste des fondamentaux techniques à mettre en place pour le bon fonctionnement de l' API Entreprise : ☑️ Être en mesure de gérer le protocole HTTPS ... Read more",
+    "host_name": "entreprise.api.gouv.fr",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://entreprise.api.gouv.fr",
+    "name": "API Entreprise",
+    "snippet": "Des données certifiées · Les fournisseurs de ... Read more",
+    "host_name": "entreprise.api.gouv.fr",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://entreprise.api.gouv.fr/developpeurs/openapi",
+    "name": "Swagger - API Entreprise",
+    "snippet": "Cette page contient la documentation technique pour accéder à API Entreprise . Les API étant accessible uniquement sous habilitation, l'interaction avec ... Read more",
+    "host_name": "entreprise.api.gouv.fr",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/annuaire-entreprises-data-gouv-fr",
+    "name": "annuaire-entreprises.data.gouv.fr",
+    "snippet": "Bienvenue sur le répertoire GitHub de l'Annuaire des Entreprises et de l' API de Recherche d' entreprises . Ces deux services sont opérés par l'administration ... Read more",
+    "host_name": "github.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.data.gouv.fr/api/1/site/catalog",
+    "name": "Untitled",
+    "snippet": "https://data.toulouse-metropole. fr / api /explore/v2.1/ Explore API v2 https://data.toulouse ... gouv . fr /datasets/69c7512a531c23436db42a1f Ville de Nantes. Read more",
+    "host_name": "www.data.gouv.fr",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://api.gouv.fr",
+    "name": "api.gouv.fr - api.gouv.fr",
+    "snippet": "Créé en 2016, api.gouv.fr est le site qui référence les API du service public , mises à la disposition des collectivités, des ministères et des entreprises pour ... Read more",
+    "host_name": "api.gouv.fr",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  }
+]

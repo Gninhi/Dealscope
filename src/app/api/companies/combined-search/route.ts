@@ -1,0 +1,213 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { searchApiGouv } from '@/lib/api-gouv';
+import { searchInfoGreffe } from '@/lib/infogreffe';
+import { parseInfoGreffeFinancial } from '@/lib/infogreffe';
+import type { SearchFilters, CombinedSearchResult, InfoGreffeRecord } from '@/lib/types';
+
+// GET /api/companies/combined-search - recherche parallèle des deux APIs
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+
+    const filters: SearchFilters = {
+      query: searchParams.get('q') || '',
+      departement: searchParams.get('departement') || undefined,
+      codePostal: searchParams.get('codePostal') || undefined,
+      commune: searchParams.get('commune') || undefined,
+      region: searchParams.get('region') || undefined,
+      sectionNaf: searchParams.get('sectionNaf') || undefined,
+      codeNaf: searchParams.get('codeNaf') || undefined,
+      natureJuridique: searchParams.get('natureJuridique') || undefined,
+      categorieEntreprise: searchParams.get('categorieEntreprise') || undefined,
+      effectifMin: searchParams.get('effectifMin') ? Number(searchParams.get('effectifMin')) : undefined,
+      effectifMax: searchParams.get('effectifMax') ? Number(searchParams.get('effectifMax')) : undefined,
+      excludeAssociations: searchParams.get('excludeAssociations') === 'true',
+      excludeAutoEntrepreneurs: searchParams.get('excludeAutoEntrepreneurs') === 'true',
+      // Nouveaux paramètres
+      trancheCA: searchParams.get('trancheCA') || undefined,
+      statutEntreprise: searchParams.get('statutEntreprise') || undefined,
+      dateImmatBefore: searchParams.get('dateImmatBefore') || undefined,
+      dateImmatAfter: searchParams.get('dateImmatAfter') || undefined,
+      caMin: searchParams.get('caMin') ? Number(searchParams.get('caMin')) : undefined,
+      caMax: searchParams.get('caMax') ? Number(searchParams.get('caMax')) : undefined,
+      sortBy: searchParams.get('sortBy') || undefined,
+      source: searchParams.get('source') || 'all',
+      page: searchParams.get('page') ? Number(searchParams.get('page')) : 1,
+      limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 20,
+    };
+
+    const hasSearchParams = !!(
+      filters.query || filters.departement || filters.region ||
+      filters.codePostal || filters.commune || filters.sectionNaf ||
+      filters.codeNaf || filters.categorieEntreprise || filters.natureJuridique ||
+      filters.statutEntreprise || filters.trancheCA ||
+      filters.dateImmatBefore || filters.dateImmatAfter ||
+      filters.caMin || filters.caMax
+    );
+
+    if (!hasSearchParams) {
+      return NextResponse.json({ error: 'Au moins un paramètre de recherche est requis' }, { status: 400 });
+    }
+
+    // Déterminer quelles sources appeler
+    const callApiGouv = filters.source === 'all' || filters.source === 'api-gouv';
+    const callInfoGreffe = filters.source === 'all' || filters.source === 'infogreffe';
+
+    // Appels API parallèles (uniquement les sources sélectionnées)
+    const promises: Promise<any>[] = [];
+    if (callApiGouv) promises.push(searchApiGouv(filters));
+    if (callInfoGreffe) promises.push(searchInfoGreffe(filters));
+
+    const settledResults = await Promise.allSettled(promises);
+
+    const apiGouvData = (callApiGouv && settledResults[0]?.status === 'fulfilled')
+      ? (settledResults[0] as PromiseFulfilledResult<any>).value
+      : [];
+
+    const infoGreffeData = (callInfoGreffe
+      && settledResults[(callApiGouv ? 1 : 0)]?.status === 'fulfilled')
+      ? (settledResults[(callApiGouv ? 1 : 0)] as PromiseFulfilledResult<any>).value
+      : [];
+
+    // Mapper les résultats API Gouv
+    const gouvMapped: CombinedSearchResult[] = apiGouvData.map((r: any) => ({
+      siren: r.siren,
+      name: r.nom_raison_sociale || r.nom_complet || '',
+      sector: r.section_activites_principales || '',
+      nafCode: r.naf || '',
+      nafLabel: r.libelle_naf || '',
+      location: `${r.libelle_commune || ''} ${r.code_postal || ''}`.trim(),
+      postalCode: r.code_postal || '',
+      city: r.libelle_commune || '',
+      department: r.departement || undefined,
+      region: r.region || undefined,
+      address: r.geo_adresse || undefined,
+      latitude: r.coordonnees?.lat ? parseFloat(r.coordonnees.lat) : undefined,
+      longitude: r.coordonnees?.lon ? parseFloat(r.coordonnees.lon) : undefined,
+      employeeCount: undefined,
+      categorieEntreprise: r.categorie_entreprise || undefined,
+      natureJuridique: r.nature_juridique || undefined,
+      revenue: r.ca ?? undefined,
+      directors: r.dirigeants?.map((d: any) => ({
+        nom: d.nom,
+        prenom: d.prenom,
+        fonction: d.fonction,
+      })),
+      source: 'api-gouv',
+    }));
+
+    // Index InfoGreffe par SIREN
+    const infoGreffeMap = new Map<string, InfoGreffeRecord>();
+    for (const record of infoGreffeData) {
+      if (record.siren) {
+        infoGreffeMap.set(record.siren, record);
+      }
+    }
+
+    // Fusionner : enrichir les résultats API Gouv avec les données financières InfoGreffe
+    const merged = new Map<string, CombinedSearchResult>();
+
+    for (const result of gouvMapped) {
+      const financialRecord = infoGreffeMap.get(result.siren);
+      if (financialRecord) {
+        const financial = parseInfoGreffeFinancial(financialRecord);
+        result.caHistory = financial?.caHistory;
+        if (result.revenue == null && financial?.latestCa) {
+          result.revenue = financial.latestCa;
+        }
+        // Nouveaux champs enrichis depuis InfoGreffe
+        if (!result.nafLabel && financialRecord.libelle_ape) {
+          result.nafLabel = financialRecord.libelle_ape;
+        }
+        result.dateImmatriculation = financialRecord.date_immatriculation || undefined;
+        result.statut = financialRecord.statut || undefined;
+        result.greffe = financialRecord.greffe || undefined;
+        result.dateClotureExercice = financial?.latestDateCloture || undefined;
+        result.trancheCA = financial?.trancheCA || undefined;
+        if (financialRecord.adresse) {
+          result.adresse = financialRecord.adresse;
+        }
+      }
+      merged.set(result.siren, result);
+    }
+
+    // Ajouter les résultats InfoGreffe uniquement (absents de l'API Gouv)
+    for (const [siren, record] of infoGreffeMap) {
+      if (!merged.has(siren)) {
+        const financial = parseInfoGreffeFinancial(record);
+        merged.set(siren, {
+          siren: record.siren,
+          name: record.denomination || '',
+          sector: '',
+          nafCode: record.code_ape || '',
+          nafLabel: record.libelle_ape || '',
+          location: `${record.ville || ''}`.trim(),
+          postalCode: record.code_postal || '',
+          city: record.ville || '',
+          department: record.departement || undefined,
+          region: record.region || undefined,
+          address: record.adresse || undefined,
+          revenue: financial?.latestCa ?? undefined,
+          caHistory: financial?.caHistory,
+          natureJuridique: record.forme_juridique || undefined,
+          source: 'infogreffe',
+          // Nouveaux champs
+          dateImmatriculation: record.date_immatriculation || undefined,
+          statut: record.statut || undefined,
+          greffe: record.greffe || undefined,
+          dateClotureExercice: financial?.latestDateCloture || undefined,
+          trancheCA: financial?.trancheCA || undefined,
+          adresse: record.adresse || undefined,
+        });
+      }
+    }
+
+    // Tri des résultats fusionnés
+    let results = Array.from(merged.values());
+    const sortBy = filters.sortBy || 'name';
+
+    results.sort((a, b) => {
+      // En priorité : résultats avec données financières
+      if (sortBy === 'name' || !sortBy) {
+        const aHasFinancial = a.caHistory && a.caHistory.length > 0;
+        const bHasFinancial = b.caHistory && b.caHistory.length > 0;
+        if (aHasFinancial && !bHasFinancial) return -1;
+        if (!aHasFinancial && bHasFinancial) return 1;
+        return a.name.localeCompare(b.name, 'fr');
+      }
+
+      switch (sortBy) {
+        case 'ca_desc':
+          return ((b.revenue ?? 0) - (a.revenue ?? 0));
+        case 'ca_asc':
+          return ((a.revenue ?? 0) - (b.revenue ?? 0));
+        case 'date_desc': {
+          const dateA = a.dateImmatriculation || '';
+          const dateB = b.dateImmatriculation || '';
+          return dateB.localeCompare(dateA);
+        }
+        case 'date_asc': {
+          const dateA = a.dateImmatriculation || '';
+          const dateB = b.dateImmatriculation || '';
+          return dateA.localeCompare(dateB);
+        }
+        case 'effectif_desc':
+          return ((b.employeeCount ?? 0) - (a.employeeCount ?? 0));
+        default:
+          return a.name.localeCompare(b.name, 'fr');
+      }
+    });
+
+    return NextResponse.json({
+      results,
+      total: results.length,
+      apiGouvCount: apiGouvData.length,
+      infogreffeCount: infoGreffeData.length,
+      page: filters.page || 1,
+      limit: filters.limit || 20,
+    });
+  } catch (error) {
+    console.error('Combined search error:', error);
+    return NextResponse.json({ error: 'Échec de la recherche', details: String(error) }, { status: 500 });
+  }
+}

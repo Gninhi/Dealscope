@@ -1,0 +1,74 @@
+[
+  {
+    "url": "https://medium.com/%40thealgorithm/saas-architecture-best-practices-in-2025-2833f9cdfc75",
+    "name": "SaaS Architecture Best Practices in 2025 | by The Algorithm - Medium",
+    "snippet": "1. Embrace a Modular and Microservices Architecture · 2. Go Multi-Tenant — But with Isolation · 3. Prioritize Security at Every Layer · 4. Optimize ...",
+    "host_name": "medium.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://wundergraph.com/blog/graphql-schema-design-multi-tenant-federated-graph",
+    "name": "Designing a Multi-Tenant Federated GraphQL Schema",
+    "snippet": "You can make multi-tenancy part of the GraphQL Schema, or you can handle it at the transport level, making the Schema itself tenant-agnostic. Missing: specification practices SaaS",
+    "host_name": "wundergraph.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://forum.weaviate.io/t/best-practice-for-multi-tenant-architecture-with-shared-and-user-specific-documents/21859",
+    "name": "Best Practice for Multi-Tenant Architecture with Shared and User",
+    "snippet": "If you're using the same schema across multiple users or use cases, it's much better to create one global collection and use tenants inside it. Missing: API SaaS",
+    "host_name": "forum.weaviate.io",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://aws.plainenglish.io/architectural-considerations-for-saas-application-part-4-12-api-interface-ce2c65a61442",
+    "name": "Architectural Considerations for SaaS Application — PART (4/12)",
+    "snippet": "- Guideline: Implement tenant-aware routing rules, per-tenant rate limiting, and strict input schema validation (e.g., for GraphQL query depth ...",
+    "host_name": "aws.plainenglish.io",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://zenn.dev/shineos/articles/saas-multi-tenant-architecture-2025%3Flocale%3Den",
+    "name": "Multi-tenant Architecture Design Patterns in SaaS Development",
+    "snippet": "In this article, we will explain representative architecture patterns in SaaS and implementation approaches at each layer (frontend, backend, DB) ... Missing: GraphQL | Show results with: GraphQL",
+    "host_name": "zenn.dev",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://httpbot.io/master-graphql-schema-design-testing",
+    "name": "Master GraphQL Schema Design and Testing Best Practices",
+    "snippet": "Learn how to master GraphQL schema design and testing with proven best practices for scalable, secure, and efficient APIs.",
+    "host_name": "httpbot.io",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.meegle.com/en_us/topics/graphql/graphql-for-multi-tenant-systems",
+    "name": "GraphQL For Multi-Tenant Systems - Meegle",
+    "snippet": "Explore diverse perspectives on GraphQL with structured content covering API design, schema optimization, real-time data, and implementation strategies. Missing: 2025 | Show results with: 2025",
+    "host_name": "www.meegle.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://the-guild.dev/graphql/hive/blog/schema-design-best-practices-part-2",
+    "name": "Proven Schema Designs and Best Practices - Part 2 | Hive",
+    "snippet": "In this part, we'll cover several possible design approaches to help you construct your schema. These are: Inside-Out Design; Outside-In ... Missing: SaaS multi- tenant",
+    "host_name": "the-guild.dev",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  }
+]
