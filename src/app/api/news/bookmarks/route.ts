@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { getWorkspace } from '@/lib/workspace';
 import { createBookmarkSchema, updateBookmarkSchema } from '@/lib/validators';
 import { validateCsrf } from '@/lib/security';
 
@@ -11,7 +10,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    const workspaceId = await getWorkspace();
+    const workspaceId = authResult.workspaceId;
     const bookmarks = await db.newsBookmark.findMany({
       where: { workspaceId },
       include: { article: true },
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const { articleId, notes } = parsed.data;
 
-    const workspaceId = await getWorkspace();
+    const workspaceId = authResult.workspaceId;
 
     const article = await db.newsArticle.findUnique({ where: { id: articleId } });
     if (!article) {
@@ -94,6 +93,10 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) return NextResponse.json({ error: 'Bookmark ID required' }, { status: 400 });
 
+    // Verify workspace ownership before delete
+    const bookmark = await db.newsBookmark.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    if (!bookmark) return NextResponse.json({ error: 'Signet introuvable' }, { status: 404 });
+
     await db.newsBookmark.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -124,6 +127,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { id, notes } = parsed.data;
+
+    // Verify workspace ownership before update
+    const existing = await db.newsBookmark.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    if (!existing) return NextResponse.json({ error: 'Signet introuvable' }, { status: 404 });
 
     const bookmark = await db.newsBookmark.update({
       where: { id },

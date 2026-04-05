@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { getWorkspace } from '@/lib/workspace';
 import { chatMessageSchema } from '@/lib/validators';
 import { isRateLimited, validateCsrf } from '@/lib/security';
 import ZAI from 'z-ai-web-dev-sdk';
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const { message } = parsed.data;
 
-    const workspaceId = await getWorkspace();
+    const workspaceId = authResult.workspaceId;
 
     await db.chatMessage.create({
       data: {
@@ -88,7 +87,7 @@ Réponds toujours en français.`;
 
           await db.chatMessage.create({
             data: {
-              workspaceId: workspaceId!,
+              workspaceId: authResult.workspaceId,
               role: 'assistant',
               content,
             },
@@ -126,7 +125,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    const workspaceId = await getWorkspace();
+    const workspaceId = authResult.workspaceId;
 
     const messages = await db.chatMessage.findMany({
       where: { workspaceId },

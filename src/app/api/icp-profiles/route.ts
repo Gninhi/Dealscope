@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { getWorkspace } from '@/lib/workspace';
 import { createIcpProfileSchema, updateIcpProfileSchema } from '@/lib/validators';
 import { validateCsrf } from '@/lib/security';
 
@@ -51,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     const { name, criteria, weights } = parsed.data;
 
-    const workspaceId = await getWorkspace();
+    const workspaceId = authResult.workspaceId;
 
     const profile = await db.iCPProfile.create({
       data: {

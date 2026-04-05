@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { getWorkspace } from '@/lib/workspace';
 import { createCompanySchema } from '@/lib/validators';
 import { validateCsrf } from '@/lib/security';
 
@@ -57,8 +56,8 @@ export async function POST(request: NextRequest) {
 
     const { siren, name } = parsed.data;
 
-    // Use workspace helper for consistent resolution
-    const workspaceId = await getWorkspace();
+    // Use authenticated user's workspace for consistent isolation
+    const workspaceId = authResult.workspaceId;
 
     // Check SIREN uniqueness
     const existing = await db.targetCompany.findUnique({ where: { siren } });

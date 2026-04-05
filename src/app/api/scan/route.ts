@@ -4,7 +4,6 @@ import { searchInfoGreffe } from '@/lib/infogreffe';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 import { requireAuth } from '@/lib/api-guard';
-import { getWorkspace } from '@/lib/workspace';
 import { isRateLimited, validateCsrf } from '@/lib/security';
 import { scanSchema } from '@/lib/validators';
 import type { SearchFilters } from '@/lib/types';
@@ -38,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     const { query, sector, icpProfileId, limit = 10 } = parsed.data;
 
-    const workspaceId = await getWorkspace();
+    const workspaceId = authResult.workspaceId;
 
     const scanHistory = await db.scanHistory.create({
       data: {

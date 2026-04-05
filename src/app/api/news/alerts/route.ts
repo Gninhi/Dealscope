@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { getWorkspace } from '@/lib/workspace';
 import { createAlertSchema } from '@/lib/validators';
 import { validateCsrf } from '@/lib/security';
 
@@ -11,7 +10,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    const workspaceId = await getWorkspace();
+    const workspaceId = authResult.workspaceId;
     const alerts = await db.newsAlert.findMany({
       where: { workspaceId },
       orderBy: { createdAt: 'desc' },
@@ -47,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const { name, type, keywords, sector, companyId } = parsed.data;
 
-    const workspaceId = await getWorkspace();
+    const workspaceId = authResult.workspaceId;
 
     const alert = await db.newsAlert.create({
       data: {
@@ -83,6 +82,10 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) return NextResponse.json({ error: 'Alert ID required' }, { status: 400 });
 
+    // Verify workspace ownership before delete
+    const alert = await db.newsAlert.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    if (!alert) return NextResponse.json({ error: 'Alerte introuvable' }, { status: 404 });
+
     await db.newsAlert.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -106,6 +109,10 @@ export async function PATCH(request: NextRequest) {
     const { id, isActive } = body;
 
     if (!id) return NextResponse.json({ error: 'Alert ID required' }, { status: 400 });
+
+    // Verify workspace ownership before update
+    const existing = await db.newsAlert.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    if (!existing) return NextResponse.json({ error: 'Alerte introuvable' }, { status: 404 });
 
     const alert = await db.newsAlert.update({
       where: { id },

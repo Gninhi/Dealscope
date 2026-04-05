@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company ID requis' }, { status: 400 });
     }
 
-    const company = await db.targetCompany.findUnique({ where: { id } });
+    const company = await db.targetCompany.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
     if (!company) {
       return NextResponse.json({ error: 'Entreprise non trouvée' }, { status: 404 });
     }
@@ -148,20 +148,23 @@ export async function GET(request: NextRequest) {
 
 // POST /api/companies/enrich - batch enrich
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   const csrfValid = validateCsrf(request);
   if (!csrfValid) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
-
-  const authResult = await requireAuth(request);
-  if (authResult instanceof NextResponse) return authResult;
 
   try {
     const body = await request.json();
     const { forceAll } = body;
 
     const companies = await db.targetCompany.findMany({
-      where: forceAll ? {} : { isEnriched: false },
+      where: {
+        ...(forceAll ? {} : { isEnriched: false }),
+        workspaceId: authResult.workspaceId,
+      },
       select: { id: true, siren: true },
     });
 

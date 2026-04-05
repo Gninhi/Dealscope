@@ -99,6 +99,11 @@ model TargetCompany {
   contacts          Contact[]
   pipelineStages    PipelineStage[]
   newsAlerts     NewsAlert[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, sector])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, updatedAt])
 }
 
 model CompanySignal {
@@ -111,6 +116,8 @@ model CompanySignal {
   detectedAt  DateTime @default(now())
   confidence  Float?
   company     TargetCompany @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
 }
 
 model Contact {
@@ -123,6 +130,8 @@ model Contact {
   seniority     String   @default("")
   emailVerified Boolean  @default(false)
   company       TargetCompany @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
 }
 
 model PipelineStage {
@@ -133,6 +142,9 @@ model PipelineStage {
   notes      String   @default("")
   movedAt    DateTime @default(now())
   company    TargetCompany @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([companyId, stage])
 }
 
 model ScanHistory {
@@ -145,6 +157,8 @@ model ScanHistory {
   startedAt       DateTime  @default(now())
   completedAt     DateTime?
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
 }
 
 model ChatMessage {
@@ -154,6 +168,8 @@ model ChatMessage {
   content     String
   createdAt   DateTime @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId, createdAt])
 }
 
 model NewsArticle {
@@ -173,6 +189,8 @@ model NewsArticle {
   createdAt   DateTime @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
   bookmarks   NewsBookmark[]
+
+  @@index([workspaceId, category])
 }
 
 model NewsAlert {
@@ -188,6 +206,8 @@ model NewsAlert {
   lastTriggered DateTime?
   createdAt   DateTime @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
 }
 
 model NewsBookmark {
@@ -198,4 +218,7 @@ model NewsBookmark {
   createdAt   DateTime @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
   article     NewsArticle @relation(fields: [articleId], references: [id])
+
+  @@index([workspaceId])
+  @@index([workspaceId, articleId])
 }
