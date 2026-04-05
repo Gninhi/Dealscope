@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
+import { safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse } from '@/lib/security';
 
 // GET /api/dashboard/stats
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
+
+  // Rate limit dashboard stats fetching
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 60, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
 
   try {
     const totalCompanies = await db.targetCompany.count({
@@ -77,6 +84,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
+    return safeErrorResponse('Failed to fetch stats', 500);
   }
 }

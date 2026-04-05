@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { createAlertSchema } from '@/lib/validators';
-import { validateCsrf } from '@/lib/security';
+import { createAlertSchema, patchAlertSchema } from '@/lib/validators';
+import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 
 // GET /api/news/alerts
 export async function GET(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(alerts);
   } catch (error) {
     console.error('Alerts fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch alerts' }, { status: 500 });
+    return safeErrorResponse('Failed to fetch alerts', 500);
   }
 }
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(alert);
   } catch (error) {
     console.error('Alert creation error:', error);
-    return NextResponse.json({ error: 'Failed to create alert' }, { status: 500 });
+    return safeErrorResponse('Failed to create alert', 500);
   }
 }
 
@@ -80,7 +80,9 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    if (!id) return NextResponse.json({ error: 'Alert ID required' }, { status: 400 });
+    if (!id || !isValidId(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
 
     // Verify workspace ownership before delete
     const alert = await db.newsAlert.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
@@ -90,11 +92,11 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Alert deletion error:', error);
-    return NextResponse.json({ error: 'Failed to delete alert' }, { status: 500 });
+    return safeErrorResponse('Failed to delete alert', 500);
   }
 }
 
-// PATCH /api/news/alerts
+// PATCH /api/news/alerts — NOW with proper Zod validation
 export async function PATCH(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
@@ -106,9 +108,20 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, isActive } = body;
+    const parsed = patchAlertSchema.safeParse(body);
 
-    if (!id) return NextResponse.json({ error: 'Alert ID required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
+    }
+
+    const { id, isActive } = parsed.data;
+
+    if (!isValidId(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
 
     // Verify workspace ownership before update
     const existing = await db.newsAlert.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
@@ -116,12 +129,12 @@ export async function PATCH(request: NextRequest) {
 
     const alert = await db.newsAlert.update({
       where: { id },
-      data: { isActive, lastTriggered: new Date() },
+      data: { isActive },
     });
 
     return NextResponse.json(alert);
   } catch (error) {
     console.error('Alert update error:', error);
-    return NextResponse.json({ error: 'Failed to update alert' }, { status: 500 });
+    return safeErrorResponse('Failed to update alert', 500);
   }
 }

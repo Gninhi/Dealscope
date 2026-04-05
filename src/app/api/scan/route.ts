@@ -4,16 +4,16 @@ import { searchInfoGreffe } from '@/lib/infogreffe';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 import { requireAuth } from '@/lib/api-guard';
-import { isRateLimited, validateCsrf } from '@/lib/security';
+import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import { scanSchema } from '@/lib/validators';
 import type { SearchFilters } from '@/lib/types';
 
 // POST /api/scan
 export async function POST(request: NextRequest) {
   // Rate limiting: 10 req/min per IP
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 10, 60 * 1000)) {
-    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, { status: 429 });
+    return rateLimitedResponse();
   }
 
   const authResult = await requireAuth(request);
@@ -212,6 +212,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Scan error:', error);
-    return NextResponse.json({ error: 'Scan failed', details: String(error) }, { status: 500 });
+    return safeErrorResponse('Scan failed', 500);
   }
 }

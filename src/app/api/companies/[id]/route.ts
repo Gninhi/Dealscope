@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { updateCompanySchema, ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
-import { validateCsrf } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 
 // GET /api/companies/[id]
 export async function GET(
@@ -14,6 +14,11 @@ export async function GET(
 
   try {
     const { id } = await params;
+
+    if (!isValidId(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
+
     const company = await db.targetCompany.findFirst({
       where: { id, workspaceId: authResult.workspaceId },
       include: {
@@ -39,9 +44,8 @@ export async function GET(
 
     return NextResponse.json(serialized);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[GET /api/companies/[id]]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[GET /api/companies/[id]]', error);
+    return safeErrorResponse('Failed to fetch company', 500);
   }
 }
 
@@ -60,6 +64,11 @@ export async function PUT(
 
   try {
     const { id } = await params;
+
+    if (!isValidId(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
+
     const body = await request.json();
 
     // Verify workspace ownership before update
@@ -104,9 +113,8 @@ export async function PUT(
 
     return NextResponse.json(company);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[PUT /api/companies/[id]]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[PUT /api/companies/[id]]', error);
+    return safeErrorResponse('Failed to update company', 500);
   }
 }
 
@@ -126,6 +134,10 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    if (!isValidId(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
+
     // Verify workspace ownership before delete
     const company = await db.targetCompany.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
     if (!company) {
@@ -144,8 +156,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[DELETE /api/companies/[id]]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[DELETE /api/companies/[id]]', error);
+    return safeErrorResponse('Failed to delete company', 500);
   }
 }

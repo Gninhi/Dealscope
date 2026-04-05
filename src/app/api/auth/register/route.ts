@@ -2,28 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { z } from 'zod';
-import { isRateLimited } from '@/lib/security';
+import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse } from '@/lib/security';
 
 const registerSchema = z.object({
-  email: z.string().email('Email invalide'),
+  email: z.string().email('Email invalide').max(254).toLowerCase().trim(),
   password: z
     .string()
     .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+    .max(128, 'Le mot de passe est trop long')
     .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
     .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
     .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
-  firstName: z.string().min(1, 'Le prénom est requis'),
-  lastName: z.string().min(1, 'Le nom est requis'),
+  firstName: z.string().min(1, 'Le prénom est requis').max(100).trim(),
+  lastName: z.string().min(1, 'Le nom est requis').max(100).trim(),
 });
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 5 req/min per IP
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 5, 60 * 1000)) {
-    return NextResponse.json(
-      { error: 'Trop de requêtes. Réessayez dans une minute.' },
-      { status: 429 },
-    );
+    return rateLimitedResponse();
   }
 
   try {
@@ -71,8 +69,8 @@ export async function POST(request: NextRequest) {
       data: {
         email,
         password: hashedPassword,
-        firstName,
-        lastName,
+        firstName: sanitizeInput(firstName, 100),
+        lastName: sanitizeInput(lastName, 100),
         role: 'member',
         workspaceId,
       },
@@ -100,9 +98,6 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('Registration error:', error);
-    return NextResponse.json(
-      { error: 'Échec de la création du compte' },
-      { status: 500 },
-    );
+    return safeErrorResponse('Échec de la création du compte', 500);
   }
 }

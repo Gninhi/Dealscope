@@ -2,6 +2,10 @@
  * Fix script: sets admin password and ensures AppSetting row exists.
  *
  * Usage:  cd /home/z/my-project && bun run scripts/fix-db.ts
+ *
+ * SECURITY WARNING: This script contains hardcoded passwords.
+ * Only use in development/testing environments.
+ * In production, use environment variables or secure secret management.
  */
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -10,11 +14,14 @@ const db = new PrismaClient({
   datasources: { db: { url: "file:/home/z/my-project/db/custom.db" } },
 });
 
+// Load password from environment or use secure default
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@2025!ChangeMe';
+
 async function main() {
   console.log('=== DealScope DB Fix Script ===\n');
 
   // 1. Hash the new admin password
-  const hash = await bcrypt.hash("Admin123!", 12);
+  const hash = await bcrypt.hash(ADMIN_PASSWORD, 12);
   console.log(`Password hash generated (bcrypt, 12 rounds)`);
 
   // 2. Update demo@dealscope.fr password
@@ -33,7 +40,6 @@ async function main() {
     console.log("Created AppSetting row (id='app', isFirstSetup=false)");
   } else {
     console.log(`AppSetting row already exists (id='${existing.id}', isFirstSetup=${existing.isFirstSetup})`);
-    // Ensure isFirstSetup is false
     if (existing.isFirstSetup) {
       await db.appSetting.update({
         where: { id: "app" },
@@ -49,20 +55,19 @@ async function main() {
   });
   console.log(`\nWorkspace(s): ${JSON.stringify(workspaces, null, 2)}`);
 
-  // 5. List all users for verification
+  // 5. List all users for verification (WITHOUT password hashes)
   const users = await db.user.findMany({
-    select: { id: true, email: true, role: true, workspaceId: true, password: true },
+    select: { id: true, email: true, role: true, workspaceId: true },
   });
   console.log(`\nUser(s):`);
   for (const u of users) {
-    const pwPrefix = u.password ? u.password.substring(0, 20) + '...' : '(empty)';
-    console.log(`  - ${u.email} | role=${u.role} | workspaceId=${u.workspaceId} | pw=${pwPrefix}`);
+    console.log(`  - ${u.email} | role=${u.role} | workspaceId=${u.workspaceId}`);
   }
 
   // 6. Verify password works
   const demoUser = await db.user.findUnique({ where: { email: "demo@dealscope.fr" } });
   if (demoUser) {
-    const valid = await bcrypt.compare("Admin123!", demoUser.password);
+    const valid = await bcrypt.compare(ADMIN_PASSWORD, demoUser.password);
     console.log(`\nPassword verification for demo@dealscope.fr: ${valid ? '✅ VALID' : '❌ FAILED'}`);
   }
 

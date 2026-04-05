@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { z } from 'zod';
-import { isRateLimited } from '@/lib/security';
-import { generateCsrfToken } from '@/lib/security';
+import { isRateLimited, getClientIp, rateLimitedResponse, generateCsrfToken, safeErrorResponse } from '@/lib/security';
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email('Email invalide'),
+  email: z.string().email('Email invalide').max(254).toLowerCase().trim(),
 });
 
 // POST /api/auth/forgot-password
 export async function POST(request: NextRequest) {
   // Rate limiting: 3 req/min per IP
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 3, 60 * 1000)) {
-    return NextResponse.json(
-      { error: 'Trop de requêtes. Réessayez dans une minute.' },
-      { status: 429 },
-    );
+    return rateLimitedResponse();
   }
 
   try {
@@ -52,18 +48,15 @@ export async function POST(request: NextRequest) {
     });
 
     // In production, this would send an email with the reset link.
-    // For now, return the token in the response.
+    // NEVER expose the token in production — only in development for testing
     return NextResponse.json({
       success: true,
       message: 'Si un compte existe avec cet email, un lien de réinitialisation sera envoyé.',
-      // Development only: expose token
+      // Development only: expose token for testing convenience
       ...(process.env.NODE_ENV === 'development' && { resetToken }),
     });
   } catch (error) {
     console.error('Forgot password error:', error);
-    return NextResponse.json(
-      { error: 'Erreur lors de la demande de réinitialisation' },
-      { status: 500 },
-    );
+    return safeErrorResponse("Erreur lors de la demande de réinitialisation", 500);
   }
 }

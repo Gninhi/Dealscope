@@ -3,15 +3,15 @@ import { searchApiGouv } from '@/lib/api-gouv';
 import { searchInfoGreffe } from '@/lib/infogreffe';
 import { parseInfoGreffeFinancial } from '@/lib/infogreffe';
 import { requireAuth } from '@/lib/api-guard';
-import { isRateLimited } from '@/lib/security';
+import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import type { SearchFilters, CombinedSearchResult, InfoGreffeRecord } from '@/lib/types';
 
 // GET /api/companies/combined-search - recherche parallèle
 export async function GET(request: NextRequest) {
   // Rate limiting: 20 req/min per IP
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 20, 60 * 1000)) {
-    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans un instant.' }, { status: 429 });
+    return rateLimitedResponse();
   }
 
   const authResult = await requireAuth(request);
@@ -208,6 +208,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Combined search error:', error);
-    return NextResponse.json({ error: 'Échec de la recherche', details: String(error) }, { status: 500 });
+    return safeErrorResponse('Échec de la recherche', 500);
   }
 }

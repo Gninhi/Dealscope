@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchInfoGreffe, getInfoGreffeBySiren } from '@/lib/infogreffe';
 import { requireAuth } from '@/lib/api-guard';
-import { isRateLimited } from '@/lib/security';
+import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import type { SearchFilters } from '@/lib/types';
 
 // GET /api/companies/infogreffe - search InfoGreffe
 export async function GET(request: NextRequest) {
   // Rate limiting: 20 req/min per IP
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 20, 60 * 1000)) {
-    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans un instant.' }, { status: 429 });
+    return rateLimitedResponse();
   }
 
   const authResult = await requireAuth(request);
@@ -47,6 +47,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results, total: results.length });
   } catch (error) {
     console.error('InfoGreffe search error:', error);
-    return NextResponse.json({ error: 'Search failed', details: String(error) }, { status: 500 });
+    return safeErrorResponse('Search failed', 500);
   }
 }

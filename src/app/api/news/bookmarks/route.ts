@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { createBookmarkSchema, updateBookmarkSchema } from '@/lib/validators';
-import { validateCsrf } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 
 // GET /api/news/bookmarks
 export async function GET(request: NextRequest) {
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(bookmarks);
   } catch (error) {
     console.error('Bookmarks fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch bookmarks' }, { status: 500 });
+    return safeErrorResponse('Failed to fetch bookmarks', 500);
   }
 }
 
@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { articleId, notes } = parsed.data;
+
+    if (!isValidId(articleId)) {
+      return NextResponse.json({ error: 'Article ID invalide' }, { status: 400 });
+    }
 
     const workspaceId = authResult.workspaceId;
 
@@ -73,7 +77,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(bookmark);
   } catch (error) {
     console.error('Bookmark creation error:', error);
-    return NextResponse.json({ error: 'Failed to create bookmark' }, { status: 500 });
+    return safeErrorResponse('Failed to create bookmark', 500);
   }
 }
 
@@ -91,7 +95,9 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    if (!id) return NextResponse.json({ error: 'Bookmark ID required' }, { status: 400 });
+    if (!id || !isValidId(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
 
     // Verify workspace ownership before delete
     const bookmark = await db.newsBookmark.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
@@ -101,7 +107,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Bookmark deletion error:', error);
-    return NextResponse.json({ error: 'Failed to delete bookmark' }, { status: 500 });
+    return safeErrorResponse('Failed to delete bookmark', 500);
   }
 }
 
@@ -128,6 +134,10 @@ export async function PATCH(request: NextRequest) {
 
     const { id, notes } = parsed.data;
 
+    if (!isValidId(id)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
+
     // Verify workspace ownership before update
     const existing = await db.newsBookmark.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
     if (!existing) return NextResponse.json({ error: 'Signet introuvable' }, { status: 404 });
@@ -141,6 +151,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(bookmark);
   } catch (error) {
     console.error('Bookmark update error:', error);
-    return NextResponse.json({ error: 'Failed to update bookmark' }, { status: 500 });
+    return safeErrorResponse('Failed to update bookmark', 500);
   }
 }

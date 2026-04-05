@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { requireAuth } from '@/lib/api-guard';
-import { isRateLimited, validateCsrf } from '@/lib/security';
+import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import { newsSummarySchema } from '@/lib/validators';
 
 // POST /api/news/summary
@@ -13,9 +13,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Rate limiting: 10 req/min per IP
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 10, 60 * 1000)) {
-    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, { status: 429 });
+    return rateLimitedResponse();
   }
 
   const authResult = await requireAuth(request);
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Zod validation
     const parsed = newsSummarySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Données invalides', details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json({ error: 'Données invalides' }, { status: 400 });
     }
     const { title, snippet } = parsed.data;
 
@@ -55,6 +55,6 @@ Sois factuel et professionnel.`,
     return NextResponse.json({ summary });
   } catch (error) {
     console.error('Summary error:', error);
-    return NextResponse.json({ error: 'Summary failed' }, { status: 500 });
+    return safeErrorResponse('Summary failed', 500);
   }
 }

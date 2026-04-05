@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { movePipelineSchema } from '@/lib/validators';
-import { validateCsrf } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse } from '@/lib/security';
 
 // GET /api/pipeline
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
+
+  // Rate limit GET requests
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 60, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
 
   try {
     const stages = await db.pipelineStage.findMany({
@@ -41,7 +47,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(grouped);
   } catch (error) {
     console.error('Error fetching pipeline:', error);
-    return NextResponse.json({ error: 'Failed to fetch pipeline' }, { status: 500 });
+    return safeErrorResponse('Failed to fetch pipeline', 500);
   }
 }
 
@@ -93,6 +99,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(pipelineStage);
   } catch (error) {
     console.error('Error updating pipeline:', error);
-    return NextResponse.json({ error: 'Failed to update pipeline' }, { status: 500 });
+    return safeErrorResponse('Failed to update pipeline', 500);
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { validateCsrf } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 import { searchApiGouv } from '@/lib/api-gouv';
 import { getInfoGreffeBySiren, parseInfoGreffeFinancial } from '@/lib/infogreffe';
 
@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json({ error: 'Company ID requis' }, { status: 400 });
+    if (!id || !isValidId(id)) {
+      return NextResponse.json({ error: 'Company ID invalide' }, { status: 400 });
     }
 
     const company = await db.targetCompany.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Enrich error:', error);
-    return NextResponse.json({ error: "Échec de l'enrichissement", details: String(error) }, { status: 500 });
+    return safeErrorResponse("Échec de l'enrichissement", 500);
   }
 }
 
@@ -160,12 +160,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { forceAll } = body;
 
+    // Batch enrich: limit to prevent abuse
+    const MAX_BATCH = 50;
     const companies = await db.targetCompany.findMany({
       where: {
         ...(forceAll ? {} : { isEnriched: false }),
         workspaceId: authResult.workspaceId,
       },
       select: { id: true, siren: true },
+      take: MAX_BATCH,
     });
 
     const results = { total: companies.length, enriched: 0, failed: 0 };
@@ -174,7 +177,11 @@ export async function POST(request: NextRequest) {
       try {
         const reqUrl = new URL(request.url);
         const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
-        const res = await fetch(`${baseUrl}/api/companies/enrich?id=${comp.id}`);
+        const authHeader = request.headers.get('authorization');
+        const res = await fetch(`${baseUrl}/api/companies/enrich?id=${comp.id}`, {
+          headers: authHeader ? { 'Authorization': authHeader } : {},
+          signal: AbortSignal.timeout(30000),
+        });
         if (res.ok) {
           results.enriched++;
         } else {
@@ -189,6 +196,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(results);
   } catch (error) {
     console.error('Batch enrich error:', error);
-    return NextResponse.json({ error: 'Échec de l\'enrichissement batch', details: String(error) }, { status: 500 });
+    return safeErrorResponse("Échec de l'enrichissement batch", 500);
   }
 }

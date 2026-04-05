@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-guard';
+import { safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse } from '@/lib/security';
 
 // GET /api/news
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
+  // Rate limit news fetching
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category') || 'all';
   const query = searchParams.get('query') || '';
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 50);
+  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10) || 50, 50);
   const refresh = searchParams.get('refresh') === 'true';
 
   try {
@@ -104,10 +111,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('News error:', error);
-    return NextResponse.json(
-      { error: 'Erreur de chargement', details: String(error) },
-      { status: 500 },
-    );
+    return safeErrorResponse('Erreur de chargement', 500);
   }
 }
 
@@ -209,6 +213,7 @@ const RSS_FEEDS: Record<string, string[]> = {
 // ── Cache ─────────────────────────────────────────────────────────
 const cache = new Map<string, { data: any[]; ts: number }>();
 const TTL = 10 * 60 * 1000;
+const MAX_CACHE_SIZE = 500;
 
 // ── Helpers ──────────────────────────────────────────────────────
 function categorize(title: string, snippet: string, fallback: string): string {
@@ -355,6 +360,17 @@ async function fetchNewsItems(
     );
     for (const group of results) allItems.push(...group);
   }
+
+  // Prevent cache from growing unbounded
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const entries = Array.from(cache.entries());
+    entries.sort((a, b) => a[1].ts - b[1].ts);
+    const toDelete = entries.slice(0, Math.floor(MAX_CACHE_SIZE * 0.2));
+    for (const [key] of toDelete) {
+      cache.delete(key);
+    }
+  }
+
   return dedup(allItems);
 }
 

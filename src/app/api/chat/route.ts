@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { chatMessageSchema } from '@/lib/validators';
-import { isRateLimited, validateCsrf } from '@/lib/security';
+import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import ZAI from 'z-ai-web-dev-sdk';
 
 // POST /api/chat - SSE streaming chat
 export async function POST(request: NextRequest) {
   // Rate limiting: 10 req/min per IP
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 10, 60 * 1000)) {
-    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, { status: 429 });
+    return rateLimitedResponse();
   }
 
   const authResult = await requireAuth(request);
@@ -115,7 +115,7 @@ Réponds toujours en français.`;
     });
   } catch (error) {
     console.error('Chat error:', error);
-    return NextResponse.json({ error: 'Chat failed' }, { status: 500 });
+    return safeErrorResponse('Chat failed', 500);
   }
 }
 
@@ -123,6 +123,12 @@ Réponds toujours en français.`;
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
+
+  // Rate limit chat history fetching
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 60, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
 
   try {
     const workspaceId = authResult.workspaceId;
@@ -136,6 +142,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(messages);
   } catch (error) {
     console.error('Error fetching chat history:', error);
-    return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
+    return safeErrorResponse('Failed to fetch chat history', 500);
   }
 }

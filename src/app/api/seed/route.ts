@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { requireAdmin } from '@/lib/api-guard';
-import { validateCsrf } from '@/lib/security';
+import { validateCsrf, safeErrorResponse } from '@/lib/security';
 
 // POST /api/seed - seed demo data avec de VRAIES entreprises françaises
+// SECURITY: Admin only, CSRF protected
 export async function POST(request: NextRequest) {
   // Require admin role
   const authResult = await requireAdmin(request);
@@ -36,8 +37,9 @@ export async function POST(request: NextRequest) {
       data: { name: 'DealScope Demo', slug: 'dealscope', plan: 'premium' },
     });
 
-    // Create user with password
-    const hashedPassword = await hashPassword('Demo2025!');
+    // Create user with STRONG demo password (change immediately after setup)
+    const demoPassword = process.env.SEED_DEMO_PASSWORD || 'Demo@2025!ChangeMe';
+    const hashedPassword = await hashPassword(demoPassword);
     await db.user.create({
       data: {
         workspaceId: workspace.id,
@@ -213,7 +215,7 @@ export async function POST(request: NextRequest) {
         city: 'Paris',
         postalCode: '75001',
         region: 'Île-de-France',
-        address: '14 Avenue de l\'Opéra, 75001 Paris',
+        address: "14 Avenue de l'Opéra, 75001 Paris",
         revenue: 80000000,
         employeeCount: 220,
         natureJuridique: 'SAS',
@@ -310,7 +312,7 @@ export async function POST(request: NextRequest) {
             companyId: company.id,
             type: 'alert',
             title: 'CA nul — société cessée',
-            description: 'Le chiffre d\'affaires est nul, indiquant une cessation d\'activité probable.',
+            description: "Le chiffre d'affaires est nul, indiquant une cessation d'activité probable.",
             source: 'api_gouv',
             confidence: 0.95,
             detectedAt: new Date(Date.now() - Math.random() * 7 * 86400000),
@@ -357,10 +359,10 @@ export async function POST(request: NextRequest) {
       workspace: workspace.name,
       companies: demoCompanies.length,
       icpProfiles: 2,
-      note: 'Toutes les entreprises ont de vrais SIRENs vérifiables sur annuaire-entreprises.data.gouv.fr',
+      note: 'Données de démonstration chargées avec succès',
     });
   } catch (error) {
     console.error('Seed error:', error);
-    return NextResponse.json({ error: 'Seed failed', details: String(error) }, { status: 500 });
+    return safeErrorResponse('Seed failed', 500);
   }
 }
