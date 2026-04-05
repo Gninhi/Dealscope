@@ -3,7 +3,18 @@ import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { chatMessageSchema } from '@/lib/validators';
 import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getGemma4 } from '@/lib/gemma4';
+
+// ─── Suggested Prompts ─────────────────────────────────────────────────────
+
+const SUGGESTED_PROMPTS = [
+  { label: 'Analyser une entreprise', prompt: 'Analyse cette entreprise pour une perspective M&A: ' },
+  { label: 'Critères de recherche', prompt: 'Génère des critères de recherche M&A pour: ' },
+  { label: 'Résumé du pipeline', prompt: 'Fais un résumé de mes deals en cours.' },
+  { label: 'Scoring ICP', prompt: 'Comment évaluer cette entreprise contre mon profil ICP ? ' },
+  { label: 'Email de prospection', prompt: 'Rédige un email de prospection M&A pour: ' },
+  { label: 'Signaux M&A', prompt: 'Quels sont les signaux d\'opportunité M&A à surveiller dans le secteur ' },
+];
 
 // POST /api/chat - SSE streaming chat
 export async function POST(request: NextRequest) {
@@ -33,6 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { message } = parsed.data;
+    const model = body.model || 'gemma4';
 
     const workspaceId = authResult.workspaceId;
 
@@ -57,33 +69,18 @@ export async function POST(request: NextRequest) {
         content: m.content,
       }));
 
-    const systemPrompt = `Tu es DealScope AI, un assistant intelligent spécialisé dans les fusions et acquisitions (M&A) en France. Tu aides les analystes M&A à:
-
-1. Analyser des entreprises cibles potentielles
-2. Évaluer la pertinence des cibles par rapport aux profils ICP (Ideal Customer Profile)
-3. Identifier des signaux d'opportunité (croissance, changement de direction, financement, etc.)
-4. Fournir des insights sur les secteurs d'activité français
-5. Aider à la qualification de cibles et à la préparation d'approches
-
-Tu parles français et tu es concis et professionnel. Quand on te donne des données financières, analyse-les avec rigueur. Si on te demande de chercher des entreprises, suggère des critères de recherche pertinents.
-
-Réponds toujours en français.`;
-
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
 
         try {
-          const zai = await ZAI.create();
+          const gemma4 = getGemma4();
 
-          const completion = await zai.chat.completions.create({
-            messages: [
-              { role: 'system', content: systemPrompt },
-              ...contextMessages,
-            ],
+          const result = await gemma4.chat(contextMessages, {
+            temperature: 0.7,
           });
 
-          const content = completion.choices?.[0]?.message?.content || 'Je n\'ai pas pu générer de réponse.';
+          const content = result.content;
 
           await db.chatMessage.create({
             data: {
@@ -93,7 +90,11 @@ Réponds toujours en français.`;
             },
           });
 
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ content, model: result.model, suggestedPrompts: model === 'gemma4' ? SUGGESTED_PROMPTS : undefined })}\n\n`,
+            ),
+          );
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         } catch (error) {
           console.error('AI chat error:', error);
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
       take: 100,
     });
 
-    return NextResponse.json(messages);
+    return NextResponse.json({ messages, suggestedPrompts: SUGGESTED_PROMPTS });
   } catch (error) {
     console.error('Error fetching chat history:', error);
     return safeErrorResponse('Failed to fetch chat history', 500);

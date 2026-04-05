@@ -5,7 +5,7 @@ import { useTheme } from 'next-themes';
 import {
   LayoutDashboard, Search, Kanban, Radar, MessageSquare,
   Newspaper, Settings, ChevronLeft, ChevronRight, Sun, Moon, Zap,
-  Loader2
+  Loader2, Sparkles
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,7 @@ const tabs = [
   { key: 'recherche', label: 'Recherche', icon: Search },
   { key: 'pipeline', label: 'Pipeline', icon: Kanban },
   { key: 'scan', label: 'Scan IA', icon: Radar },
-  { key: 'chat', label: 'Chat IA', icon: MessageSquare },
+  { key: 'chat', label: 'Chat IA', icon: MessageSquare, gemmaBadge: true },
   { key: 'actualites', label: 'Actualités & Alertes', icon: Newspaper },
   { key: 'parametres', label: 'Paramètres', icon: Settings },
 ];
@@ -26,7 +26,7 @@ export default function Sidebar() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
   return (
@@ -48,7 +48,7 @@ export default function Sidebar() {
               <h1 className="text-base font-bold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
                 DealScope
               </h1>
-              <p className="text-[10px] text-muted-foreground leading-none">M&A Intelligence</p>
+              <p className="text-[10px] text-muted-foreground leading-none">M&A Intelligence — Gemma 4</p>
             </div>
           )}
         </div>
@@ -72,13 +72,34 @@ export default function Sidebar() {
                 !sidebarOpen && 'justify-center px-2'
               )}
             >
-              <Icon
-                className={cn(
-                  'w-5 h-5 shrink-0 transition-colors',
-                  isActive ? 'text-indigo-400' : 'text-muted-foreground group-hover:text-foreground'
+              <div className="relative shrink-0">
+                <Icon
+                  className={cn(
+                    'w-5 h-5 transition-colors',
+                    isActive ? 'text-indigo-400' : 'text-muted-foreground group-hover:text-foreground'
+                  )}
+                />
+                {/* Gemma 4 badge when chat tab is active */}
+                {tab.gemmaBadge && isActive && (
+                  <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 flex items-center justify-center">
+                    <Sparkles className="w-2 h-2 text-white" />
+                  </span>
                 )}
-              />
-              {sidebarOpen && <span className="truncate">{tab.label}</span>}
+              </div>
+              {sidebarOpen && (
+                <span className="truncate flex items-center gap-1.5">
+                  {tab.label}
+                  {tab.gemmaBadge && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-gradient-to-r from-indigo-500/20 to-violet-500/20 text-indigo-400 leading-none">
+                      Gemma 4
+                    </span>
+                  )}
+                </span>
+              )}
+              {/* Collapsed Gemma 4 badge */}
+              {!sidebarOpen && tab.gemmaBadge && isActive && (
+                <span className="sr-only">Gemma 4 actif</span>
+              )}
             </button>
           );
         })}

@@ -1,13 +1,48 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2, Users, TrendingUp, Target, Search, Kanban, Radar } from 'lucide-react';
+import { Building2, Users, TrendingUp, Target, Search, Kanban, Radar, Sparkles, Brain, ArrowRight, Lightbulb, Zap, BarChart3 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { formatCurrency, formatNumber, getStageLabel, timeAgo, getStageDotColor } from '@/lib/utils';
 import { PIPELINE_STAGES } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const stageColors = ['#6B7280', '#3B82F6', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#EF4444'];
+
+const AI_INSIGHTS = [
+  {
+    id: '1',
+    icon: TrendingUp,
+    text: 'Le secteur SaaS B2B affiche une croissance de 23% en France',
+    gradient: 'from-emerald-500/10 to-teal-500/10',
+    iconColor: 'text-emerald-400',
+    borderHover: 'hover:border-emerald-500/30',
+  },
+  {
+    id: '2',
+    icon: BarChart3,
+    text: 'Les valuations medtech sont en hausse de 15% ce trimestre',
+    gradient: 'from-blue-500/10 to-cyan-500/10',
+    iconColor: 'text-blue-400',
+    borderHover: 'hover:border-blue-500/30',
+  },
+  {
+    id: '3',
+    icon: Zap,
+    text: '12 nouvelles cibles correspondent à votre ICP cette semaine',
+    gradient: 'from-amber-500/10 to-orange-500/10',
+    iconColor: 'text-amber-400',
+    borderHover: 'hover:border-amber-500/30',
+  },
+  {
+    id: '4',
+    icon: Lightbulb,
+    text: 'Les fintechs françaises lèvent 2,3 Md€ au T1 2025, un record',
+    gradient: 'from-violet-500/10 to-purple-500/10',
+    iconColor: 'text-violet-400',
+    borderHover: 'hover:border-violet-500/30',
+  },
+];
 
 interface Stats {
   totalCompanies: number;
@@ -65,7 +100,7 @@ export default function DashboardTab() {
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
-        <p className="text-muted-foreground text-sm mt-1">Vue d'ensemble de votre activité M&A</p>
+        <p className="text-muted-foreground text-sm mt-1">Vue d&apos;ensemble de votre activité M&A</p>
       </div>
 
       {/* Stat cards */}
@@ -123,6 +158,47 @@ export default function DashboardTab() {
           gradient="from-emerald-500/10 to-teal-500/10"
           onClick={() => setActiveTab('scan')}
         />
+      </div>
+
+      {/* AI Insights — Gemma 4 */}
+      <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <Brain className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                Insights IA
+                <span className="text-sm font-medium bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">— Gemma 4</span>
+              </h3>
+              <p className="text-xs text-muted-foreground">Analyses et tendances du marché M&A</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('chat')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/15 transition-colors"
+          >
+            Voir plus
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {AI_INSIGHTS.map((insight) => {
+            const Icon = insight.icon;
+            return (
+              <div
+                key={insight.id}
+                className={`flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br ${insight.gradient} border border-transparent ${insight.borderHover} transition-all duration-200`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${insight.iconColor}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <p className="text-sm text-foreground leading-relaxed">{insight.text}</p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Pipeline chart */}

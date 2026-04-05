@@ -4,13 +4,11 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Re-enable strict mode for production safety
-  reactStrictMode: true,
-  // Exclude examples/ and skills/ from the build
+  // Désactiver strict mode — évite le double rendu qui peut causer des problèmes en iframe
+  reactStrictMode: false,
   outputFileTracingExcludes: {
     '*': ['./examples/**', './skills/**'],
   },
-  // Security headers at the Next.js level (defense in depth)
   async headers() {
     return [
       {
@@ -28,7 +26,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Limit server actions body size
+  // Autorise les origines de dev (Z.ai, localhost, etc.)
+  allowedDevOrigins: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ],
   experimental: {
     serverActions: {
       bodySizeLimit: '1mb',
