@@ -1,58 +1,61 @@
 'use client';
 
-import { useState, useEffect, Suspense, useCallback } from 'react';
-import { useSession, signIn } from 'next-auth/react';
-import { ThemeProvider } from 'next-themes';
-import { useDealScopeStore } from '@/store/use-deal-scope-store';
-import Sidebar from '@/components/dealscope/Sidebar';
-import DashboardTab from '@/components/dealscope/DashboardTab';
-import SearchTab from '@/components/dealscope/SearchTab';
-import PipelineTab from '@/components/dealscope/PipelineTab';
-import ScanTab from '@/components/dealscope/ScanTab';
-import ChatTab from '@/components/dealscope/ChatTab';
-import NewsTab from '@/components/dealscope/NewsTab';
-import SettingsTab from '@/components/dealscope/SettingsTab';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, Suspense } from 'react';
+import { signIn } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
-/* ── Login Form (embedded) ─────────────────────────── */
 function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [callbackUrl, setCallbackUrl] = useState('/');
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  useEffect(() => {
+    const url = searchParams.get('callbackUrl') || '/';
+    setCallbackUrl(url);
+  }, [searchParams]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
+
       if (result?.error) {
         setError('Email ou mot de passe incorrect');
+      } else {
+        router.push(callbackUrl);
+        router.refresh();
       }
-      // On success, NextAuth + useSession will refresh automatically
     } catch {
-      setError('Une erreur est survenue lors de la connexion');
+      setError('Une erreur est survenue');
     } finally {
       setLoading(false);
     }
-  }, [email, password]);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
+      {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-violet-600/10 via-transparent to-indigo-600/10" />
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
 
       <div className="relative z-10 w-full max-w-md px-4">
-        {/* Logo */}
+        {/* Logo / Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 mb-4 shadow-lg shadow-violet-500/25">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,8 +74,11 @@ function LoginForm() {
                 {error}
               </div>
             )}
+
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm text-muted-foreground">Adresse email</Label>
+              <Label htmlFor="email" className="text-sm text-muted-foreground">
+                Adresse email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -84,12 +90,25 @@ function LoginForm() {
                 className="bg-background/50 border-white/10 focus:border-violet-500/50 focus:ring-violet-500/20 h-11"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm text-muted-foreground">Mot de passe</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-sm text-muted-foreground">
+                  Mot de passe
+                </Label>
+                <button
+                  type="button"
+                  className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                  disabled
+                  title="Bientôt disponible"
+                >
+                  Mot de passe oublié ?
+                </button>
+              </div>
               <Input
                 id="password"
                 type="password"
-                placeholder="•••••••••"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -97,6 +116,7 @@ function LoginForm() {
                 className="bg-background/50 border-white/10 focus:border-violet-500/50 focus:ring-violet-500/20 h-11"
               />
             </div>
+
             <Button
               type="submit"
               disabled={loading}
@@ -105,7 +125,7 @@ function LoginForm() {
                 'bg-gradient-to-r from-violet-600 to-indigo-600',
                 'hover:from-violet-500 hover:to-indigo-500',
                 'text-white shadow-lg shadow-violet-500/25',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
               )}
             >
               {loading ? (
@@ -121,6 +141,18 @@ function LoginForm() {
               )}
             </Button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Pas encore de compte ?{' '}
+              <a
+                href="/register"
+                className="text-violet-400 hover:text-violet-300 font-medium transition-colors"
+              >
+                Créer un compte
+              </a>
+            </p>
+          </div>
         </div>
 
         {/* Footer */}
@@ -132,95 +164,24 @@ function LoginForm() {
   );
 }
 
-/* ── Main App (authenticated) ─────────────────────── */
-function AppContent() {
-  const { activeTab, sidebarOpen, setCompanies } = useDealScopeStore();
-
-  useEffect(() => {
-    fetch('/api/companies')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.text();
-      })
-      .then((text) => {
-        try {
-          const data = JSON.parse(text);
-          if (Array.isArray(data)) setCompanies(data);
-        } catch { /* ignore */ }
-      })
-      .catch(() => {});
-  }, [setCompanies]);
-
-  const renderTab = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <DashboardTab />;
-      case 'recherche':
-        return <SearchTab />;
-      case 'pipeline':
-        return <PipelineTab />;
-      case 'scan':
-        return <ScanTab />;
-      case 'chat':
-        return <ChatTab />;
-      case 'actualites':
-        return <NewsTab />;
-      case 'parametres':
-        return <SettingsTab />;
-      default:
-        return <DashboardTab />;
-    }
-  };
-
+function LoginFallback() {
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main
-        className={cn(
-          'flex-1 transition-all duration-300',
-          sidebarOpen ? 'ml-60' : 'ml-[72px]',
-        )}
-      >
-        <div className="p-6 max-w-[1600px]">{renderTab()}</div>
-      </main>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        Chargement...
+      </div>
     </div>
   );
 }
 
-/* ── Root: auth gate ────────────────────────────────── */
-export default function Home() {
-  const { data: session, status } = useSession();
-
-  // Unauthenticated → show login form
-  if (status === 'unauthenticated' || !session) {
-    return (
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center min-h-screen bg-background">
-              <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
-            </div>
-          }
-        >
-          <LoginForm />
-        </Suspense>
-      </ThemeProvider>
-    );
-  }
-
-  // Loading session
-  if (!session && status === 'loading') {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  // Authenticated → show app
+export default function LoginPage() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-      <AppContent />
-    </ThemeProvider>
+    <Suspense fallback={<LoginFallback />}>
+      <LoginForm />
+    </Suspense>
   );
 }

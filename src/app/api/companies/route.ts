@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/api-guard';
+import { getWorkspace } from '@/lib/workspace';
+import { createCompanySchema } from '@/lib/validators';
+import { validateCsrf } from '@/lib/security';
 
 // GET /api/companies - list all companies with relations
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const companies = await db.targetCompany.findMany({
+      where: { workspaceId: authResult.workspaceId },
       orderBy: { updatedAt: 'desc' },
       include: {
         signals: true,
@@ -28,23 +36,29 @@ export async function GET() {
 
 // POST /api/companies - add a company
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { siren, name, legalName, sector, nafCode, revenue, employeeCount,
-      city, postalCode, region, address, natureJuridique, categorieEntreprise,
-      latitude, longitude, sizeRange, icpScore, source, icpProfileId, notes } = body;
+    const parsed = createCompanySchema.safeParse(body);
 
-    if (!siren || !name) {
-      return NextResponse.json({ error: 'SIREN and name are required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
     }
 
-    // Ensure workspace exists
-    let workspace = await db.workspace.findFirst();
-    if (!workspace) {
-      workspace = await db.workspace.create({
-        data: { name: 'Default Workspace', slug: 'default-workspace' },
-      });
-    }
+    const { siren, name } = parsed.data;
+
+    // Use workspace helper for consistent resolution
+    const workspaceId = await getWorkspace();
 
     // Check SIREN uniqueness
     const existing = await db.targetCompany.findUnique({ where: { siren } });
@@ -57,36 +71,35 @@ export async function POST(request: NextRequest) {
 
     const company = await db.targetCompany.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         siren,
         name,
-        legalName: legalName || name,
-        sector: sector || '',
-        nafCode: nafCode || '',
-        revenue: revenue != null ? Number(revenue) : null,
-        employeeCount: employeeCount != null ? Number(employeeCount) : null,
-        city: city || '',
-        postalCode: postalCode || '',
-        region: region || '',
-        address: address || '',
-        natureJuridique: natureJuridique || '',
-        categorieEntreprise: categorieEntreprise || '',
-        latitude: latitude != null ? Number(latitude) : null,
-        longitude: longitude != null ? Number(longitude) : null,
-        sizeRange: sizeRange || '',
-        icpScore: icpScore != null ? Number(icpScore) : null,
-        source: source || 'manual',
+        legalName: parsed.data.legalName || name,
+        sector: parsed.data.sector || '',
+        nafCode: parsed.data.nafCode || '',
+        revenue: parsed.data.revenue != null ? Number(parsed.data.revenue) : null,
+        employeeCount: parsed.data.employeeCount != null ? Number(parsed.data.employeeCount) : null,
+        city: parsed.data.city || '',
+        postalCode: parsed.data.postalCode || '',
+        region: parsed.data.region || '',
+        address: parsed.data.address || '',
+        latitude: parsed.data.latitude != null ? Number(parsed.data.latitude) : null,
+        longitude: parsed.data.longitude != null ? Number(parsed.data.longitude) : null,
+        icpScore: parsed.data.icpScore != null ? Number(parsed.data.icpScore) : null,
+        source: parsed.data.source || 'manual',
         status,
-        notes: notes || '',
-        icpProfileId: icpProfileId || null,
-        // Stocker les données initiales de la recherche
+        notes: body.notes || '',
+        icpProfileId: body.icpProfileId || null,
+        natureJuridique: body.natureJuridique || '',
+        categorieEntreprise: body.categorieEntreprise || '',
         nafLabel: body.nafLabel || '',
         dateImmatriculation: body.dateImmatriculation || '',
         statutEntreprise: body.statutEntreprise || '',
         greffe: body.greffe || '',
         trancheCA: body.trancheCA || '',
         dateClotureExercice: body.dateClotureExercice || '',
-        adresseComplete: body.adresseComplete || (body.adresse || address || ''),
+        adresseComplete: body.adresseComplete || (body.adresse || parsed.data.address || ''),
+        sizeRange: body.sizeRange || '',
         pipelineStages: {
           create: {
             stage: status,
@@ -102,8 +115,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Enrichissement asynchrone en arrière-plan (API Gouv + InfoGreffe)
-    // Utilise le host de la requête pour éviter les problèmes de port
+    // Enrichissement asynchrone en arrière-plan
     const reqUrl = new URL(request.url);
     const enrichBaseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
     fetch(`${enrichBaseUrl}/api/companies/enrich?id=${company.id}`).catch(() => {
@@ -119,11 +131,25 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/companies - delete a company
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) {
       return NextResponse.json({ error: 'Company ID is required' }, { status: 400 });
+    }
+
+    // Verify workspace ownership before delete
+    const company = await db.targetCompany.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    if (!company) {
+      return NextResponse.json({ error: 'Entreprise introuvable' }, { status: 404 });
     }
 
     await db.pipelineStage.deleteMany({ where: { companyId: id } });
@@ -140,6 +166,14 @@ export async function DELETE(request: NextRequest) {
 
 // PATCH /api/companies - update company notes/status
 export async function PATCH(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const { id, notes, status, icpScore } = body;
@@ -152,6 +186,12 @@ export async function PATCH(request: NextRequest) {
     if (notes !== undefined) updateData.notes = notes;
     if (status !== undefined) updateData.status = status;
     if (icpScore !== undefined) updateData.icpScore = icpScore;
+
+    // Verify workspace ownership before update
+    const existing = await db.targetCompany.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Entreprise introuvable' }, { status: 404 });
+    }
 
     const company = await db.targetCompany.update({
       where: { id },

@@ -3,36 +3,52 @@ import { searchApiGouv } from '@/lib/api-gouv';
 import { searchInfoGreffe } from '@/lib/infogreffe';
 import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
+import { requireAuth } from '@/lib/api-guard';
+import { getWorkspace } from '@/lib/workspace';
+import { isRateLimited, validateCsrf } from '@/lib/security';
+import { scanSchema } from '@/lib/validators';
 import type { SearchFilters } from '@/lib/types';
 
-// POST /api/scan - AI-powered scan
+// POST /api/scan
 export async function POST(request: NextRequest) {
+  // Rate limiting: 10 req/min per IP
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  if (isRateLimited(clientIp, 10, 60 * 1000)) {
+    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, { status: 429 });
+  }
+
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
-    const { query, sector, icpProfileId, limit = 10 } = await request.json();
+    const body = await request.json();
+    const parsed = scanSchema.safeParse(body);
 
-    if (!query && !sector) {
-      return NextResponse.json({ error: 'Query or sector is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
     }
 
-    // Ensure workspace exists
-    let workspace = await db.workspace.findFirst();
-    if (!workspace) {
-      workspace = await db.workspace.create({
-        data: { name: 'Default Workspace', slug: 'default-workspace' },
-      });
-    }
+    const { query, sector, icpProfileId, limit = 10 } = parsed.data;
 
-    // Create scan history
+    const workspaceId = await getWorkspace();
+
     const scanHistory = await db.scanHistory.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         icpProfileId: icpProfileId || null,
         status: 'running',
         totalTargets: 0,
       },
     });
 
-    // Search API Gouv
     const searchFilters: SearchFilters = {
       query: query || sector || '',
       sectionNaf: sector || undefined,
@@ -66,7 +82,6 @@ export async function POST(request: NextRequest) {
       console.error('API Gouv search failed during scan:', e);
     }
 
-    // Search InfoGreffe
     let infoGreffeResults: import('@/lib/types').InfoGreffeRecord[] = [];
     try {
       infoGreffeResults = await searchInfoGreffe(searchFilters);
@@ -79,14 +94,12 @@ export async function POST(request: NextRequest) {
       data: { totalTargets: apiGouvResults.length + infoGreffeResults.length },
     });
 
-    // Create companies from API Gouv results
     const createdCompanies: any[] = [];
     for (const result of apiGouvResults) {
       try {
         const existing = await db.targetCompany.findUnique({ where: { siren: result.siren } });
         if (existing) continue;
 
-        // Use AI to score if z-ai-web-dev-sdk is available
         let icpScore: number | null = null;
         try {
           const zai = await ZAI.create();
@@ -103,18 +116,17 @@ export async function POST(request: NextRequest) {
             ],
           });
           const scoreText = scoreResponse.choices?.[0]?.message?.content?.trim();
-          const parsed = parseInt(scoreText || '', 10);
-          if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
-            icpScore = parsed;
+          const parsedScore = parseInt(scoreText || '', 10);
+          if (!isNaN(parsedScore) && parsedScore >= 0 && parsedScore <= 100) {
+            icpScore = parsedScore;
           }
         } catch {
-          // AI scoring unavailable in sandbox — assign random score
           icpScore = Math.floor(Math.random() * 40) + 50;
         }
 
         const company = await db.targetCompany.create({
           data: {
-            workspaceId: workspace.id,
+            workspaceId,
             siren: result.siren,
             name: result.nom_raison_sociale || '',
             legalName: result.nom_complet || result.nom_raison_sociale || '',
@@ -149,7 +161,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Also process InfoGreffe results for additional companies
     const infoGreffeSirens = new Set(apiGouvResults.map(r => r.siren));
     for (const result of infoGreffeResults) {
       if (!result.siren || infoGreffeSirens.has(result.siren)) continue;
@@ -159,7 +170,7 @@ export async function POST(request: NextRequest) {
 
         await db.targetCompany.create({
           data: {
-            workspaceId: workspace.id,
+            workspaceId,
             siren: result.siren,
             name: result.denomination || '',
             sector: '',
@@ -185,7 +196,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update scan history
     await db.scanHistory.update({
       where: { id: scanHistory.id },
       data: {

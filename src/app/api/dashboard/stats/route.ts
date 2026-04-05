@@ -1,12 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/api-guard';
 
-// GET /api/dashboard/stats - aggregated statistics
-export async function GET() {
+// GET /api/dashboard/stats
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
-    const totalCompanies = await db.targetCompany.count();
+    const totalCompanies = await db.targetCompany.count({
+      where: { workspaceId: authResult.workspaceId },
+    });
 
     const allCompanies = await db.targetCompany.findMany({
+      where: { workspaceId: authResult.workspaceId },
       select: { status: true, sector: true, source: true, icpScore: true, createdAt: true },
     });
 
@@ -40,6 +47,7 @@ export async function GET() {
       : 0;
 
     const recentCompanies = await db.targetCompany.findMany({
+      where: { workspaceId: authResult.workspaceId },
       orderBy: { createdAt: 'desc' },
       take: 5,
       include: {
@@ -50,8 +58,12 @@ export async function GET() {
       },
     });
 
-    const totalSignals = await db.companySignal.count();
-    const totalContacts = await db.contact.count();
+    const totalSignals = await db.companySignal.count({
+      where: { company: { workspaceId: authResult.workspaceId } },
+    });
+    const totalContacts = await db.contact.count({
+      where: { company: { workspaceId: authResult.workspaceId } },
+    });
 
     return NextResponse.json({
       totalCompanies,

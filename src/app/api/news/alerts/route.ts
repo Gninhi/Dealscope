@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/api-guard';
+import { getWorkspace } from '@/lib/workspace';
+import { createAlertSchema } from '@/lib/validators';
+import { validateCsrf } from '@/lib/security';
 
-// GET /api/news/alerts — List all alerts
-export async function GET() {
+// GET /api/news/alerts
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
-    const workspace = await db.workspace.findFirst({ where: { slug: 'default' } });
-    if (!workspace) return NextResponse.json([]);
-
+    const workspaceId = await getWorkspace();
     const alerts = await db.newsAlert.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -19,22 +24,34 @@ export async function GET() {
   }
 }
 
-// POST /api/news/alerts — Create alert
+// POST /api/news/alerts
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { name, type, keywords, sector, companyId } = body;
+    const parsed = createAlertSchema.safeParse(body);
 
-    if (!name || !type) {
-      return NextResponse.json({ error: 'Name and type are required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
     }
 
-    const workspace = await db.workspace.findFirst({ where: { slug: 'default' } });
-    if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 400 });
+    const { name, type, keywords, sector, companyId } = parsed.data;
+
+    const workspaceId = await getWorkspace();
 
     const alert = await db.newsAlert.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         name,
         type: type || 'keyword',
         keywords: JSON.stringify(keywords || []),
@@ -52,6 +69,14 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/news/alerts?id=xxx
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -66,8 +91,16 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// PATCH /api/news/alerts — Toggle alert active state
+// PATCH /api/news/alerts
 export async function PATCH(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const { id, isActive } = body;

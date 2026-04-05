@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/api-guard';
+import { getWorkspace } from '@/lib/workspace';
+import { createBookmarkSchema, updateBookmarkSchema } from '@/lib/validators';
+import { validateCsrf } from '@/lib/security';
 
-// GET /api/news/bookmarks — List all bookmarks with article info
-export async function GET() {
+// GET /api/news/bookmarks
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
-    const workspace = await db.workspace.findFirst({ where: { slug: 'default' } });
-    if (!workspace) return NextResponse.json([]);
-
+    const workspaceId = await getWorkspace();
     const bookmarks = await db.newsBookmark.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId },
       include: { article: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -20,28 +25,38 @@ export async function GET() {
   }
 }
 
-// POST /api/news/bookmarks — Create bookmark
+// POST /api/news/bookmarks
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { articleId, notes } = body;
+    const parsed = createBookmarkSchema.safeParse(body);
 
-    if (!articleId) {
-      return NextResponse.json({ error: 'Article ID required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
     }
 
-    const workspace = await db.workspace.findFirst({ where: { slug: 'default' } });
-    if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 400 });
+    const { articleId, notes } = parsed.data;
 
-    // Ensure article exists
+    const workspaceId = await getWorkspace();
+
     const article = await db.newsArticle.findUnique({ where: { id: articleId } });
     if (!article) {
       return NextResponse.json({ error: 'Article not found' }, { status: 404 });
     }
 
-    // Check if already bookmarked
     const existing = await db.newsBookmark.findFirst({
-      where: { workspaceId: workspace.id, articleId },
+      where: { workspaceId, articleId },
     });
     if (existing) {
       return NextResponse.json({ error: 'Already bookmarked' }, { status: 409 });
@@ -49,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     const bookmark = await db.newsBookmark.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         articleId,
         notes: notes || '',
       },
@@ -65,6 +80,14 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/news/bookmarks?id=xxx
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -79,13 +102,28 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// PATCH /api/news/bookmarks — Update bookmark notes
+// PATCH /api/news/bookmarks
 export async function PATCH(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { id, notes } = body;
+    const parsed = updateBookmarkSchema.safeParse(body);
 
-    if (!id) return NextResponse.json({ error: 'Bookmark ID required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
+    }
+
+    const { id, notes } = parsed.data;
 
     const bookmark = await db.newsBookmark.update({
       where: { id },

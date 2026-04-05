@@ -2,10 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchApiGouv } from '@/lib/api-gouv';
 import { searchInfoGreffe } from '@/lib/infogreffe';
 import { parseInfoGreffeFinancial } from '@/lib/infogreffe';
+import { requireAuth } from '@/lib/api-guard';
+import { isRateLimited } from '@/lib/security';
 import type { SearchFilters, CombinedSearchResult, InfoGreffeRecord } from '@/lib/types';
 
-// GET /api/companies/combined-search - recherche parallèle des deux APIs
+// GET /api/companies/combined-search - recherche parallèle
 export async function GET(request: NextRequest) {
+  // Rate limiting: 20 req/min per IP
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans un instant.' }, { status: 429 });
+  }
+
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { searchParams } = new URL(request.url);
 
@@ -23,7 +34,6 @@ export async function GET(request: NextRequest) {
       effectifMax: searchParams.get('effectifMax') ? Number(searchParams.get('effectifMax')) : undefined,
       excludeAssociations: searchParams.get('excludeAssociations') === 'true',
       excludeAutoEntrepreneurs: searchParams.get('excludeAutoEntrepreneurs') === 'true',
-      // Nouveaux paramètres
       trancheCA: searchParams.get('trancheCA') || undefined,
       statutEntreprise: searchParams.get('statutEntreprise') || undefined,
       dateImmatBefore: searchParams.get('dateImmatBefore') || undefined,
@@ -49,11 +59,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Au moins un paramètre de recherche est requis' }, { status: 400 });
     }
 
-    // Déterminer quelles sources appeler
     const callApiGouv = filters.source === 'all' || filters.source === 'api-gouv';
     const callInfoGreffe = filters.source === 'all' || filters.source === 'infogreffe';
 
-    // Appels API parallèles (uniquement les sources sélectionnées)
     const promises: Promise<any>[] = [];
     if (callApiGouv) promises.push(searchApiGouv(filters));
     if (callInfoGreffe) promises.push(searchInfoGreffe(filters));
@@ -69,7 +77,6 @@ export async function GET(request: NextRequest) {
       ? (settledResults[(callApiGouv ? 1 : 0)] as PromiseFulfilledResult<any>).value
       : [];
 
-    // Mapper les résultats API Gouv
     const gouvMapped: CombinedSearchResult[] = apiGouvData.map((r: any) => ({
       siren: r.siren,
       name: r.nom_raison_sociale || r.nom_complet || '',
@@ -96,7 +103,6 @@ export async function GET(request: NextRequest) {
       source: 'api-gouv',
     }));
 
-    // Index InfoGreffe par SIREN
     const infoGreffeMap = new Map<string, InfoGreffeRecord>();
     for (const record of infoGreffeData) {
       if (record.siren) {
@@ -104,7 +110,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fusionner : enrichir les résultats API Gouv avec les données financières InfoGreffe
     const merged = new Map<string, CombinedSearchResult>();
 
     for (const result of gouvMapped) {
@@ -115,7 +120,6 @@ export async function GET(request: NextRequest) {
         if (result.revenue == null && financial?.latestCa) {
           result.revenue = financial.latestCa;
         }
-        // Nouveaux champs enrichis depuis InfoGreffe
         if (!result.nafLabel && financialRecord.libelle_ape) {
           result.nafLabel = financialRecord.libelle_ape;
         }
@@ -131,7 +135,6 @@ export async function GET(request: NextRequest) {
       merged.set(result.siren, result);
     }
 
-    // Ajouter les résultats InfoGreffe uniquement (absents de l'API Gouv)
     for (const [siren, record] of infoGreffeMap) {
       if (!merged.has(siren)) {
         const financial = parseInfoGreffeFinancial(record);
@@ -151,7 +154,6 @@ export async function GET(request: NextRequest) {
           caHistory: financial?.caHistory,
           natureJuridique: record.forme_juridique || undefined,
           source: 'infogreffe',
-          // Nouveaux champs
           dateImmatriculation: record.date_immatriculation || undefined,
           statut: record.statut || undefined,
           greffe: record.greffe || undefined,
@@ -162,12 +164,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Tri des résultats fusionnés
     let results = Array.from(merged.values());
     const sortBy = filters.sortBy || 'name';
 
     results.sort((a, b) => {
-      // En priorité : résultats avec données financières
       if (sortBy === 'name' || !sortBy) {
         const aHasFinancial = a.caHistory && a.caHistory.length > 0;
         const bHasFinancial = b.caHistory && b.caHistory.length > 0;

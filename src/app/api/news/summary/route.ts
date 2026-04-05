@@ -1,14 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { requireAuth } from '@/lib/api-guard';
+import { isRateLimited, validateCsrf } from '@/lib/security';
+import { newsSummarySchema } from '@/lib/validators';
 
-// POST /api/news/summary — Generate AI summary for a news article
+// POST /api/news/summary
 export async function POST(request: NextRequest) {
-  try {
-    const { title, snippet } = await request.json();
+  // CSRF validation
+  const csrfValid = validateCsrf(request);
+  if (!csrfValid) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
 
-    if (!title) {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+  // Rate limiting: 10 req/min per IP
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  if (isRateLimited(clientIp, 10, 60 * 1000)) {
+    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, { status: 429 });
+  }
+
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
+    const body = await request.json();
+
+    // Zod validation
+    const parsed = newsSummarySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Données invalides', details: parsed.error.issues }, { status: 400 });
     }
+    const { title, snippet } = parsed.data;
 
     const zai = await ZAI.create();
     const completion = await zai.chat.completions.create({

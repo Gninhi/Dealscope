@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/api-guard';
+import { getWorkspace } from '@/lib/workspace';
+import { createIcpProfileSchema, updateIcpProfileSchema } from '@/lib/validators';
+import { validateCsrf } from '@/lib/security';
 
-// GET /api/icp-profiles - list all ICP profiles
-export async function GET() {
+// GET /api/icp-profiles
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const profiles = await db.iCPProfile.findMany({
+      where: { workspaceId: authResult.workspaceId },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -20,28 +28,37 @@ export async function GET() {
   }
 }
 
-// POST /api/icp-profiles - create ICP profile
+// POST /api/icp-profiles
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
-    const { name, criteria, weights } = await request.json();
+    const body = await request.json();
+    const parsed = createIcpProfileSchema.safeParse(body);
 
-    if (!name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
     }
 
-    let workspace = await db.workspace.findFirst();
-    if (!workspace) {
-      workspace = await db.workspace.create({
-        data: { name: 'Default Workspace', slug: 'default-workspace' },
-      });
-    }
+    const { name, criteria, weights } = parsed.data;
+
+    const workspaceId = await getWorkspace();
 
     const profile = await db.iCPProfile.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         name,
-        criteria: criteria || '{}',
-        weights: weights || '{}',
+        criteria: criteria ? JSON.stringify(criteria) : '{}',
+        weights: weights ? JSON.stringify(weights) : '{}',
       },
     });
 
@@ -52,20 +69,40 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/icp-profiles - update ICP profile
+// PUT /api/icp-profiles
 export async function PUT(request: NextRequest) {
-  try {
-    const { id, name, criteria, weights, isActive } = await request.json();
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
 
-    if (!id) {
-      return NextResponse.json({ error: 'Profile ID is required' }, { status: 400 });
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json();
+    const parsed = updateIcpProfileSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
     }
+
+    const { id, name, criteria, weights, isActive } = parsed.data;
 
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
-    if (criteria !== undefined) updateData.criteria = criteria;
-    if (weights !== undefined) updateData.weights = weights;
+    if (criteria !== undefined) updateData.criteria = JSON.stringify(criteria);
+    if (weights !== undefined) updateData.weights = JSON.stringify(weights);
     if (isActive !== undefined) updateData.isActive = isActive;
+
+    // Verify workspace ownership before update
+    const existing = await db.iCPProfile.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Profil ICP introuvable' }, { status: 404 });
+    }
 
     const profile = await db.iCPProfile.update({
       where: { id },
@@ -79,13 +116,27 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/icp-profiles - delete ICP profile
+// DELETE /api/icp-profiles
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) {
       return NextResponse.json({ error: 'Profile ID is required' }, { status: 400 });
+    }
+
+    // Verify workspace ownership before delete
+    const existing = await db.iCPProfile.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Profil ICP introuvable' }, { status: 404 });
     }
 
     await db.iCPProfile.delete({ where: { id } });

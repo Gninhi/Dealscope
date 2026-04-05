@@ -56,8 +56,8 @@ export const ALLOWED_COMPANY_UPDATE_FIELDS = new Set([
 
 // ─── Pipeline validators ──────────────────────────────────────
 
-const VALID_STAGES = [
-  'identified',
+const VALID_PIPELINE_STAGES = [
+  'identifiees',
   'a_contacter',
   'contactees',
   'qualifiees',
@@ -68,7 +68,7 @@ const VALID_STAGES = [
 
 export const movePipelineSchema = z.object({
   companyId: z.string().min(1, 'companyId requis'),
-  stage: z.enum(VALID_STAGES),
+  newStage: z.enum(VALID_PIPELINE_STAGES, { message: 'Étape de pipeline invalide' }),
   notes: z.string().optional().default(''),
 });
 
@@ -80,12 +80,16 @@ export const scanSchema = z.object({
   region: z.string().optional(),
   employeeRange: z.string().optional(),
   icpProfileId: z.string().optional(),
-});
+  limit: z.number().int().min(1).max(50).optional().default(10),
+}).refine(
+  (data) => (data.query?.trim().length ?? 0) > 0 || (data.sector?.trim().length ?? 0) > 0,
+  { message: 'Query ou secteur requis', path: ['query'] },
+);
 
 // ─── Chat validators ──────────────────────────────────────────
 
 export const chatMessageSchema = z.object({
-  message: z.string().min(1, 'Message requis').max(4000),
+  message: z.string().min(1, 'Message requis').max(5000, 'Message trop long (max 5000 caractères)'),
   conversationId: z.string().optional(),
 });
 
@@ -97,7 +101,37 @@ export const createIcpProfileSchema = z.object({
   weights: z.record(z.string(), z.unknown()).optional().default({}),
 });
 
-// ─── News validators ──────────────────────────────────────────
+export const updateIcpProfileSchema = z.object({
+  id: z.string().min(1, 'ID du profil requis'),
+  name: z.string().min(1, 'Nom du profil requis').max(100).optional(),
+  criteria: z.record(z.string(), z.unknown()).optional(),
+  weights: z.record(z.string(), z.unknown()).optional(),
+  isActive: z.boolean().optional(),
+});
+
+// ─── News Alert validators ────────────────────────────────────
+
+export const createAlertSchema = z.object({
+  name: z.string().min(1, 'Nom de l\'alerte requis'),
+  type: z.enum(['keyword', 'sector', 'company']).default('keyword'),
+  keywords: z.array(z.string()).optional().default([]),
+  sector: z.string().optional().default(''),
+  companyId: z.string().optional(),
+});
+
+// ─── News Bookmark validators ─────────────────────────────────
+
+export const createBookmarkSchema = z.object({
+  articleId: z.string().min(1, 'Article ID requis'),
+  notes: z.string().optional().default(''),
+});
+
+export const updateBookmarkSchema = z.object({
+  id: z.string().min(1, 'Bookmark ID requis'),
+  notes: z.string().optional(),
+});
+
+// ─── News Search validators ───────────────────────────────────
 
 export const newsSearchSchema = z.object({
   q: z.string().min(1, 'Requête requise'),
@@ -118,4 +152,11 @@ export const searchSchema = z.object({
   q: z.string().min(1, 'Requête requise'),
   page: z.number().int().min(1).optional().default(1),
   per_page: z.number().int().min(1).max(25).optional().default(10),
+});
+
+// ─── News Summary validators ──────────────────────────────────
+
+export const newsSummarySchema = z.object({
+  title: z.string().min(1, 'Titre requis'),
+  snippet: z.string().optional().default(''),
 });

@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
+import { requireAuth } from '@/lib/api-guard';
+import { updateCompanySchema, ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
+import { validateCsrf } from '@/lib/security';
 
-/**
- * GET /api/companies/[id]
- * Returns a single company with all signals, contacts, and pipeline stages.
- */
+// GET /api/companies/[id]
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { id } = await params;
-    const company = await db.targetCompany.findUnique({
-      where: { id },
+    const company = await db.targetCompany.findFirst({
+      where: { id, workspaceId: authResult.workspaceId },
       include: {
         signals: { orderBy: { detectedAt: 'desc' } },
         contacts: true,
@@ -29,7 +31,6 @@ export async function GET(
       );
     }
 
-    // Serialize Decimal fields
     const serialized = {
       ...company,
       revenue: Number(company.revenue),
@@ -44,24 +45,47 @@ export async function GET(
   }
 }
 
-/**
- * PUT /api/companies/[id]
- * Updates a company. Only whitelisted fields are allowed.
- * CRITICAL FIX: Previously, raw body was passed to Prisma allowing
- * overwriting of id, workspaceId, createdAt, etc.
- */
+// PUT /api/companies/[id]
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();
 
-    // CRITICAL: Only allow whitelisted fields to prevent overwriting protected fields
+    // Verify workspace ownership before update
+    const existing = await db.targetCompany.findFirst({
+      where: { id, workspaceId: authResult.workspaceId },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Entreprise introuvable' },
+        { status: 404 },
+      );
+    }
+
+    // Zod validation for update fields
+    const parsed = updateCompanySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
+    }
+
+    // Whitelist fields
     const sanitizedData: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(body)) {
-      if (ALLOWED_COMPANY_UPDATE_FIELDS.has(key)) {
+    for (const [key, value] of Object.entries(parsed.data)) {
+      if (ALLOWED_COMPANY_UPDATE_FIELDS.has(key) && value !== undefined) {
         sanitizedData[key] = value;
       }
     }
@@ -86,20 +110,24 @@ export async function PUT(
   }
 }
 
-/**
- * DELETE /api/companies/[id]
- * Deletes a company and all related data.
- * CRITICAL FIX: Uses Prisma transaction to prevent orphan data.
- */
+// DELETE /api/companies/[id]
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
     const { id } = await params;
 
-    // Verify company exists
-    const company = await db.targetCompany.findUnique({ where: { id } });
+    // Verify workspace ownership before delete
+    const company = await db.targetCompany.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
     if (!company) {
       return NextResponse.json(
         { error: 'Entreprise introuvable' },
@@ -107,7 +135,6 @@ export async function DELETE(
       );
     }
 
-    // Use transaction to prevent orphan data on failure
     await db.$transaction(async (tx) => {
       await tx.pipelineStage.deleteMany({ where: { companyId: id } });
       await tx.companySignal.deleteMany({ where: { companyId: id } });

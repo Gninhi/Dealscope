@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { hashPassword } from '@/lib/password';
+import { requireAdmin } from '@/lib/api-guard';
+import { validateCsrf } from '@/lib/security';
 
 // POST /api/seed - seed demo data avec de VRAIES entreprises françaises
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const seedSecret = process.env.SEED_SECRET;
-  if (!seedSecret || authHeader !== `Bearer ${seedSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Require admin role
+  const authResult = await requireAdmin(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
+
   try {
     // Clean existing data
     await db.companySignal.deleteMany();
@@ -17,23 +24,35 @@ export async function POST(request: NextRequest) {
     await db.chatMessage.deleteMany();
     await db.scanHistory.deleteMany();
     await db.iCPProfile.deleteMany();
+    await db.newsAlert.deleteMany();
+    await db.newsBookmark.deleteMany();
+    await db.newsArticle.deleteMany();
     await db.user.deleteMany();
     await db.workspace.deleteMany();
+    await db.appSetting.deleteMany();
 
     // Create workspace
     const workspace = await db.workspace.create({
-      data: { name: 'DealScope Demo', slug: 'dealscope-demo', plan: 'premium' },
+      data: { name: 'DealScope Demo', slug: 'dealscope', plan: 'premium' },
     });
 
-    // Create user
+    // Create user with password
+    const hashedPassword = await hashPassword('Demo2025!');
     await db.user.create({
       data: {
         workspaceId: workspace.id,
         email: 'demo@dealscope.fr',
+        password: hashedPassword,
         firstName: 'Marie',
         lastName: 'Dupont',
         role: 'admin',
+        emailVerified: true,
       },
+    });
+
+    // Mark setup as done
+    await db.appSetting.create({
+      data: { id: 'app', isFirstSetup: false },
     });
 
     // Create ICP Profiles

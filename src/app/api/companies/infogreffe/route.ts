@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchInfoGreffe, getInfoGreffeBySiren } from '@/lib/infogreffe';
+import { requireAuth } from '@/lib/api-guard';
+import { isRateLimited } from '@/lib/security';
 import type { SearchFilters } from '@/lib/types';
 
 // GET /api/companies/infogreffe - search InfoGreffe
 export async function GET(request: NextRequest) {
+  // Rate limiting: 20 req/min per IP
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans un instant.' }, { status: 429 });
+  }
+
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { searchParams } = new URL(request.url);
     
-    // Check if searching by SIREN specifically
     const siren = searchParams.get('siren');
     
     if (siren) {

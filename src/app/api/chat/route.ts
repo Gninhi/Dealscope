@@ -1,36 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/api-guard';
+import { getWorkspace } from '@/lib/workspace';
+import { chatMessageSchema } from '@/lib/validators';
+import { isRateLimited, validateCsrf } from '@/lib/security';
 import ZAI from 'z-ai-web-dev-sdk';
 
 // POST /api/chat - SSE streaming chat
 export async function POST(request: NextRequest) {
+  // Rate limiting: 10 req/min per IP
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+  if (isRateLimited(clientIp, 10, 60 * 1000)) {
+    return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, { status: 429 });
+  }
+
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  // CSRF protection
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
   try {
-    const { message } = await request.json();
+    const body = await request.json();
+    const parsed = chatMessageSchema.safeParse(body);
 
-    if (!message) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
     }
 
-    // Ensure workspace exists
-    let workspace = await db.workspace.findFirst();
-    if (!workspace) {
-      workspace = await db.workspace.create({
-        data: { name: 'Default Workspace', slug: 'default-workspace' },
-      });
-    }
+    const { message } = parsed.data;
 
-    // Save user message
+    const workspaceId = await getWorkspace();
+
     await db.chatMessage.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId,
         role: 'user',
         content: message,
       },
     });
 
-    // Get recent chat history for context
     const recentMessages = await db.chatMessage.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId },
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
@@ -54,7 +70,6 @@ Tu parles français et tu es concis et professionnel. Quand on te donne des donn
 
 Réponds toujours en français.`;
 
-    // Create SSE stream
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
@@ -71,16 +86,14 @@ Réponds toujours en français.`;
 
           const content = completion.choices?.[0]?.message?.content || 'Je n\'ai pas pu générer de réponse.';
 
-          // Save assistant message
           await db.chatMessage.create({
             data: {
-              workspaceId: workspace!.id,
+              workspaceId: workspaceId!,
               role: 'assistant',
               content,
             },
           });
 
-          // Send as SSE
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         } catch (error) {
@@ -107,18 +120,16 @@ Réponds toujours en français.`;
   }
 }
 
-// GET /api/chat - get chat history
-export async function GET() {
+// GET /api/chat
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
-    let workspace = await db.workspace.findFirst();
-    if (!workspace) {
-      workspace = await db.workspace.create({
-        data: { name: 'Default Workspace', slug: 'default-workspace' },
-      });
-    }
+    const workspaceId = await getWorkspace();
 
     const messages = await db.chatMessage.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId },
       orderBy: { createdAt: 'asc' },
       take: 100,
     });
