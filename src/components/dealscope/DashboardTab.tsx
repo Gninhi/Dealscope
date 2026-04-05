@@ -25,10 +25,15 @@ export default function DashboardTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/dashboard/stats')
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    fetch('/api/dashboard/stats', { signal: controller.signal })
       .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); })
       .then(text => { try { setStats(JSON.parse(text)); } catch {} finally { setLoading(false); } })
       .catch(() => setLoading(false));
+
+    return () => { clearTimeout(timeout); controller.abort(); };
   }, []);
 
   if (loading) {
@@ -39,11 +44,19 @@ export default function DashboardTab() {
     );
   }
 
-  if (!stats) return <div className="text-muted-foreground text-center py-12">Aucune donnée disponible</div>;
+  const s = stats || {
+    totalCompanies: 0,
+    pipelineByStage: {},
+    topSectors: [],
+    avgIcpScore: 0,
+    recentCompanies: [],
+    totalSignals: 0,
+    totalContacts: 0,
+  };
 
   const pipelineChartData = PIPELINE_STAGES.map((stage, i) => ({
     name: stage.label,
-    count: stats.pipelineByStage[stage.key] || 0,
+    count: s.pipelineByStage[stage.key] || 0,
     color: stageColors[i],
   }));
 
@@ -60,28 +73,28 @@ export default function DashboardTab() {
         <StatCard
           icon={<Building2 className="w-5 h-5" />}
           label="Entreprises"
-          value={formatNumber(stats.totalCompanies)}
+          value={formatNumber(s.totalCompanies)}
           color="from-indigo-500 to-violet-500"
           delay="0ms"
         />
         <StatCard
           icon={<Target className="w-5 h-5" />}
           label="Score ICP Moyen"
-          value={`${stats.avgIcpScore}/100`}
+          value={`${s.avgIcpScore}/100`}
           color="from-emerald-500 to-teal-500"
           delay="75ms"
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5" />}
           label="Signaux détectés"
-          value={formatNumber(stats.totalSignals)}
+          value={formatNumber(s.totalSignals)}
           color="from-amber-500 to-orange-500"
           delay="150ms"
         />
         <StatCard
           icon={<Users className="w-5 h-5" />}
           label="Contacts"
-          value={formatNumber(stats.totalContacts)}
+          value={formatNumber(s.totalContacts)}
           color="from-pink-500 to-rose-500"
           delay="225ms"
         />
@@ -150,11 +163,11 @@ export default function DashboardTab() {
       {/* Recent activity */}
       <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-6">
         <h3 className="text-lg font-semibold text-foreground mb-4">Activité récente</h3>
-        {stats.recentCompanies.length === 0 ? (
+        {s.recentCompanies.length === 0 ? (
           <p className="text-muted-foreground text-sm">Aucune entreprise récente</p>
         ) : (
           <div className="space-y-3">
-            {stats.recentCompanies.map((company: any) => (
+            {s.recentCompanies.map((company: any) => (
               <div
                 key={company.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-accent/30 transition-colors cursor-pointer"

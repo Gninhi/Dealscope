@@ -161,17 +161,10 @@ function dedup(items: any[]): any[] {
   });
 }
 
-// ── Method 1: ZAI web search ──────────────────────────────────
-async function searchViaSDK(query: string, num: number): Promise<any[]> {
-  try {
-    const ZAI = (await import('z-ai-web-dev-sdk')).default;
-    const zai = await ZAI.create();
-    const res = await zai.functions.invoke('web_search', { query, num });
-    return Array.isArray(res) ? res : [];
-  } catch {
-    console.error('ZAI search failed, trying fallback...');
-    return [];
-  }
+// ── Method 1: ZAI web search (disabled in sandbox — no auth token) ──
+async function searchViaSDK(_query: string, _num: number): Promise<any[]> {
+  // Z-AI SDK requires X-Token header which isn't available in production sandbox
+  return [];
 }
 
 // ── Method 2: Google News RSS (fallback) ────────────────────
