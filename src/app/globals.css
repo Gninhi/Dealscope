@@ -178,13 +178,6 @@
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-/* Smooth transitions */
-* {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-}
-
 /* Override for animations that need longer transitions */
 .animate-transition-slow {
   transition-duration: 300ms;

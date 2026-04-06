@@ -62,17 +62,6 @@ export const FORMES_JURIDIQUES = [
   'ENTREPRISE INDIVIDUELLE',
 ] as const;
 
-// Company status
-export const COMPANY_STATUSES = [
-  { value: 'identifiees', label: 'Identifiées' },
-  { value: 'a_contacter', label: 'A contacter' },
-  { value: 'contactees', label: 'Contactées' },
-  { value: 'qualifiees', label: 'Qualifiées' },
-  { value: 'opportunite', label: 'Opportunité' },
-  { value: 'deal', label: 'Deal' },
-  { value: 'annule', label: 'Annulé' },
-] as const;
-
 // Tranches de CA pour filtre avancé
 export const TRANCHES_CA = [
   { value: '<100K', label: '< 100 k€' },

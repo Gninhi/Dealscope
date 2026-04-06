@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(grouped);
   } catch (error) {
     console.error('Error fetching pipeline:', error);
-    return safeErrorResponse('Failed to fetch pipeline', 500);
+    return safeErrorResponse('Échec du chargement du pipeline', 500);
   }
 }
 
@@ -100,6 +100,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(pipelineStage);
   } catch (error) {
     console.error('Error updating pipeline:', error);
-    return safeErrorResponse('Failed to update pipeline', 500);
+    return safeErrorResponse('Échec de la mise à jour du pipeline', 500);
   }
 }

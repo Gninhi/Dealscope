@@ -27,7 +27,7 @@ export function middleware(request: NextRequest) {
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
     "connect-src 'self' https: wss: http:",
-    "frame-ancestors *", // ← autorise l'iframe Z.ai
+    "frame-ancestors 'self' https://*.z.ai https://z.ai http://localhost:3000",
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",

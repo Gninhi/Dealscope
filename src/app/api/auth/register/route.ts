@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { z } from 'zod';
-import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse, validateCsrf } from '@/lib/security';
+import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse } from '@/lib/security';
+import { ensureWorkspace } from '@/lib/workspace';
 import { passwordSchema } from '@/lib/validators';
 
 const registerSchema = z.object({
@@ -17,11 +18,6 @@ export async function POST(request: NextRequest) {
   const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 5, 60 * 1000)) {
     return rateLimitedResponse();
-  }
-
-  // CSRF protection for registration
-  if (!validateCsrf(request)) {
-    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
   try {
@@ -46,25 +42,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure workspace exists
-    const existingWorkspace = await db.workspace.findFirst();
-
-    // Wrap workspace + user + appSetting creation in a transaction
     const { user } = await db.$transaction(async (tx) => {
-      let wsId: string;
-
-      if (existingWorkspace) {
-        wsId = existingWorkspace.id;
-      } else {
-        const workspace = await tx.workspace.create({
-          data: {
-            name: 'DealScope Workspace',
-            slug: 'dealscope',
-            plan: 'pro',
-          },
-        });
-        wsId = workspace.id;
-      }
+      const workspace = await ensureWorkspace();
 
       // Hash password and create user
       const hashedPassword = await hashPassword(password);
@@ -75,7 +54,7 @@ export async function POST(request: NextRequest) {
           firstName: sanitizeInput(firstName, 100),
           lastName: sanitizeInput(lastName, 100),
           role: 'member',
-          workspaceId: wsId,
+          workspaceId: workspace.id,
         },
       });
 

@@ -90,6 +90,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    return safeErrorResponse('Failed to fetch stats', 500);
+    return safeErrorResponse('Échec du chargement des statistiques', 500);
   }
 }

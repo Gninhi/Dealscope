@@ -45,7 +45,7 @@ export async function GET(
     return NextResponse.json(serialized);
   } catch (error: unknown) {
     console.error('[GET /api/companies/[id]]', error);
-    return safeErrorResponse('Failed to fetch company', 500);
+    return safeErrorResponse('Échec du chargement de l\'entreprise', 500);
   }
 }
 
@@ -114,7 +114,7 @@ export async function PUT(
     return NextResponse.json(company);
   } catch (error: unknown) {
     console.error('[PUT /api/companies/[id]]', error);
-    return safeErrorResponse('Failed to update company', 500);
+    return safeErrorResponse('Échec de la mise à jour de l\'entreprise', 500);
   }
 }
 
@@ -157,6 +157,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error('[DELETE /api/companies/[id]]', error);
-    return safeErrorResponse('Failed to delete company', 500);
+    return safeErrorResponse('Échec de la suppression de l\'entreprise', 500);
   }
 }

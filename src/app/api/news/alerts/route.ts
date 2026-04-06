@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(alerts);
   } catch (error) {
     console.error('Alerts fetch error:', error);
-    return safeErrorResponse('Failed to fetch alerts', 500);
+    return safeErrorResponse('Échec du chargement des alertes', 500);
   }
 }
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(alert);
   } catch (error) {
     console.error('Alert creation error:', error);
-    return safeErrorResponse('Failed to create alert', 500);
+    return safeErrorResponse('Échec de la création de l\'alerte', 500);
   }
 }
 
@@ -92,7 +92,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Alert deletion error:', error);
-    return safeErrorResponse('Failed to delete alert', 500);
+    return safeErrorResponse('Échec de la suppression de l\'alerte', 500);
   }
 }
 
@@ -135,6 +135,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(alert);
   } catch (error) {
     console.error('Alert update error:', error);
-    return safeErrorResponse('Failed to update alert', 500);
+    return safeErrorResponse('Échec de la mise à jour de l\'alerte', 500);
   }
 }

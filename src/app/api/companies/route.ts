@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ companies, total, page, limit });
   } catch (error) {
     console.error('Error fetching companies:', error);
-    return safeErrorResponse('Failed to fetch companies', 500);
+    return safeErrorResponse('Échec du chargement des entreprises', 500);
   }
 }
 
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(company, { status: 201 });
   } catch (error) {
     console.error('Error creating company:', error);
-    return safeErrorResponse('Failed to create company', 500);
+    return safeErrorResponse('Échec de la création de l\'entreprise', 500);
   }
 }
 
@@ -176,7 +176,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting company:', error);
-    return safeErrorResponse('Failed to delete company', 500);
+    return safeErrorResponse('Échec de la suppression de l\'entreprise', 500);
   }
 }
 
@@ -236,6 +236,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(company);
   } catch (error) {
     console.error('Error updating company:', error);
-    return safeErrorResponse('Failed to update company', 500);
+    return safeErrorResponse('Échec de la mise à jour', 500);
   }
 }

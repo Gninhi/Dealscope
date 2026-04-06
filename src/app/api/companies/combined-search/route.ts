@@ -4,7 +4,8 @@ import { searchInfoGreffe } from '@/lib/infogreffe';
 import { parseInfoGreffeFinancial } from '@/lib/infogreffe';
 import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
-import type { SearchFilters, CombinedSearchResult, InfoGreffeRecord } from '@/lib/types';
+import { buildSearchFilters, hasSearchParams } from '@/lib/search-utils';
+import type { CombinedSearchResult, InfoGreffeRecord } from '@/lib/types';
 
 // GET /api/companies/combined-search - recherche parallèle
 export async function GET(request: NextRequest) {
@@ -18,44 +19,9 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    const { searchParams } = new URL(request.url);
+    const filters = buildSearchFilters(new URL(request.url).searchParams);
 
-    const filters: SearchFilters = {
-      query: searchParams.get('q') || '',
-      departement: searchParams.get('departement') || undefined,
-      codePostal: searchParams.get('codePostal') || undefined,
-      commune: searchParams.get('commune') || undefined,
-      region: searchParams.get('region') || undefined,
-      sectionNaf: searchParams.get('sectionNaf') || undefined,
-      codeNaf: searchParams.get('codeNaf') || undefined,
-      natureJuridique: searchParams.get('natureJuridique') || undefined,
-      categorieEntreprise: searchParams.get('categorieEntreprise') || undefined,
-      effectifMin: searchParams.get('effectifMin') ? Number(searchParams.get('effectifMin')) : undefined,
-      effectifMax: searchParams.get('effectifMax') ? Number(searchParams.get('effectifMax')) : undefined,
-      excludeAssociations: searchParams.get('excludeAssociations') === 'true',
-      excludeAutoEntrepreneurs: searchParams.get('excludeAutoEntrepreneurs') === 'true',
-      trancheCA: searchParams.get('trancheCA') || undefined,
-      statutEntreprise: searchParams.get('statutEntreprise') || undefined,
-      dateImmatBefore: searchParams.get('dateImmatBefore') || undefined,
-      dateImmatAfter: searchParams.get('dateImmatAfter') || undefined,
-      caMin: searchParams.get('caMin') ? Number(searchParams.get('caMin')) : undefined,
-      caMax: searchParams.get('caMax') ? Number(searchParams.get('caMax')) : undefined,
-      sortBy: searchParams.get('sortBy') || undefined,
-      source: searchParams.get('source') || 'all',
-      page: searchParams.get('page') ? Number(searchParams.get('page')) : 1,
-      limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 20,
-    };
-
-    const hasSearchParams = !!(
-      filters.query || filters.departement || filters.region ||
-      filters.codePostal || filters.commune || filters.sectionNaf ||
-      filters.codeNaf || filters.categorieEntreprise || filters.natureJuridique ||
-      filters.statutEntreprise || filters.trancheCA ||
-      filters.dateImmatBefore || filters.dateImmatAfter ||
-      filters.caMin || filters.caMax
-    );
-
-    if (!hasSearchParams) {
+    if (!hasSearchParams(filters)) {
       return NextResponse.json({ error: 'Au moins un paramètre de recherche est requis' }, { status: 400 });
     }
 

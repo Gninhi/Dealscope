@@ -116,7 +116,7 @@ model CompanySignal {
   source      String   @default("")
   detectedAt  DateTime @default(now())
   confidence  Float?
-  company     TargetCompany @relation(fields: [companyId], references: [id])
+  company     TargetCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
 }
@@ -130,7 +130,7 @@ model Contact {
   role          String   @default("")
   seniority     String   @default("")
   emailVerified Boolean  @default(false)
-  company       TargetCompany @relation(fields: [companyId], references: [id])
+  company       TargetCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
 }
@@ -142,7 +142,7 @@ model PipelineStage {
   assignedTo String   @default("")
   notes      String   @default("")
   movedAt    DateTime @default(now())
-  company    TargetCompany @relation(fields: [companyId], references: [id])
+  company    TargetCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([companyId, stage])
@@ -202,7 +202,7 @@ model NewsAlert {
   keywords    String   @default("[]")         // JSON array of keywords
   sector      String   @default("")
   companyId   String?
-  company     TargetCompany? @relation(fields: [companyId], references: [id])
+  company     TargetCompany? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   isActive    Boolean  @default(true)
   lastTriggered DateTime?
   createdAt   DateTime @default(now())
@@ -217,8 +217,8 @@ model NewsBookmark {
   articleId   String
   notes       String   @default("")
   createdAt   DateTime @default(now())
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  article     NewsArticle @relation(fields: [articleId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
   @@index([workspaceId, articleId])

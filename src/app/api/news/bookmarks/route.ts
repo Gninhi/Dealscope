@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(bookmarks);
   } catch (error) {
     console.error('Bookmarks fetch error:', error);
-    return safeErrorResponse('Failed to fetch bookmarks', 500);
+    return safeErrorResponse('Échec du chargement des signets', 500);
   }
 }
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(bookmark);
   } catch (error) {
     console.error('Bookmark creation error:', error);
-    return safeErrorResponse('Failed to create bookmark', 500);
+    return safeErrorResponse('Échec de la création du signet', 500);
   }
 }
 
@@ -107,7 +107,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Bookmark deletion error:', error);
-    return safeErrorResponse('Failed to delete bookmark', 500);
+    return safeErrorResponse('Échec de la suppression du signet', 500);
   }
 }
 
@@ -151,6 +151,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(bookmark);
   } catch (error) {
     console.error('Bookmark update error:', error);
-    return safeErrorResponse('Failed to update bookmark', 500);
+    return safeErrorResponse('Échec de la mise à jour du signet', 500);
   }
 }

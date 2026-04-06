@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
 import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import { newsSummarySchema } from '@/lib/validators';
+import { getGemma4 } from '@/lib/gemma4';
 
 // POST /api/news/summary
 export async function POST(request: NextRequest) {
-  // CSRF validation
   const csrfValid = validateCsrf(request);
   if (!csrfValid) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
-  // Rate limiting: 10 req/min per IP
   const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 10, 60 * 1000)) {
     return rateLimitedResponse();
@@ -23,38 +21,33 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-
-    // Zod validation
     const parsed = newsSummarySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Données invalides' }, { status: 400 });
     }
     const { title, snippet } = parsed.data;
 
-    const zai = await ZAI.create();
-    const completion = await zai.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: `Tu es un analyste M&A senior. Tu analyses les actualités de fusion et acquisition en France et en Europe.
+    const gemma4 = getGemma4();
+    const result = await gemma4.chat([
+      {
+        role: 'user',
+        content: `Analyse cette actualité M&A en 3-4 phrases maximum en français:\n\nTitre: ${title}\n${snippet ? `Résumé: ${snippet}` : ''}\n\nMets en évidence les faits, montants, impact marché et entreprises concernées. Sois factuel.`,
+      },
+    ], {
+      temperature: 0.4,
+      systemPrompt: `Tu es un analyste M&A senior. Tu analyses les actualités de fusion et acquisition en France et en Europe.
 Tu fournis un résumé concis en français de 3-4 phrases maximum, en mettant en évidence :
 1. Ce qui s'est passé (les faits)
 2. Les montants ou valorisations mentionnés
 3. L'impact potentiel pour le marché M&A
 4. Les entreprises ou secteurs concernés
 Sois factuel et professionnel.`,
-        },
-        {
-          role: 'user',
-          content: `Analyse cette actualité M&A:\n\nTitre: ${title}\n${snippet ? `Résumé: ${snippet}` : ''}`,
-        },
-      ],
     });
 
-    const summary = completion.choices?.[0]?.message?.content || 'Impossible de générer un résumé.';
+    const summary = result.content || 'Impossible de générer un résumé.';
     return NextResponse.json({ summary });
   } catch (error) {
     console.error('Summary error:', error);
-    return safeErrorResponse('Summary failed', 500);
+    return safeErrorResponse('Échec du résumé', 500);
   }
 }

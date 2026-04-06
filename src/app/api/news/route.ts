@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-guard';
 import { safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse } from '@/lib/security';
+import { getGemma4 } from '@/lib/gemma4';
 import ZAI from 'z-ai-web-dev-sdk';
 
 // GET /api/news
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('News error:', error);
-    return safeErrorResponse('Erreur de chargement', 500);
+    return safeErrorResponse('Erreur de chargement des actualités', 500);
   }
 }
 
@@ -259,10 +260,23 @@ function dedup(items: any[]): any[] {
   });
 }
 
-// TODO: Implementer avec z-ai-web-dev-sdk pour la recherche web
+let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
+
+async function getZaiClient() {
+  if (!zaiInstance) {
+    try {
+      zaiInstance = await ZAI.create();
+    } catch {
+      return null;
+    }
+  }
+  return zaiInstance;
+}
+
 async function searchViaSDK(query: string, num: number): Promise<any[]> {
   try {
-    const zai = await ZAI.create();
+    const zai = await getZaiClient();
+    if (!zai) return [];
     const result = await zai.functions.invoke('web_search', {
       query,
       num,

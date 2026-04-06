@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(profiles);
   } catch (error) {
     console.error('Error fetching ICP profiles:', error);
-    return safeErrorResponse('Failed to fetch ICP profiles', 500);
+    return safeErrorResponse('Échec du chargement des profils ICP', 500);
   }
 }
 
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(profile, { status: 201 });
   } catch (error) {
     console.error('Error creating ICP profile:', error);
-    return safeErrorResponse('Failed to create ICP profile', 500);
+    return safeErrorResponse('Échec de la création du profil ICP', 500);
   }
 }
 
@@ -121,7 +121,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(profile);
   } catch (error) {
     console.error('Error updating ICP profile:', error);
-    return safeErrorResponse('Failed to update ICP profile', 500);
+    return safeErrorResponse('Échec de la mise à jour du profil ICP', 500);
   }
 }
 
@@ -152,6 +152,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting ICP profile:', error);
-    return safeErrorResponse('Failed to delete ICP profile', 500);
+    return safeErrorResponse('Échec de la suppression du profil ICP', 500);
   }
 }
