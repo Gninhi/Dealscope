@@ -61,7 +61,7 @@ model TargetCompany {
   id                String    @id @default(cuid())
   workspaceId       String
   icpProfileId      String?
-  siren             String    @unique
+  siren             String
   name              String
   legalName         String    @default("")
   sector            String    @default("")
@@ -100,6 +100,7 @@ model TargetCompany {
   pipelineStages    PipelineStage[]
   newsAlerts     NewsAlert[]
 
+  @@unique([workspaceId, siren])
   @@index([workspaceId, status])
   @@index([workspaceId, sector])
   @@index([workspaceId, createdAt])

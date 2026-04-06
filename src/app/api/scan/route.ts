@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchApiGouv } from '@/lib/api-gouv';
 import { searchInfoGreffe } from '@/lib/infogreffe';
 import { db } from '@/lib/db';
-import ZAI from 'z-ai-web-dev-sdk';
+import { getGemma4 } from '@/lib/gemma4';
 import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import { scanSchema } from '@/lib/validators';
@@ -102,26 +102,21 @@ export async function POST(request: NextRequest) {
 
         let icpScore: number | null = null;
         try {
-          const zai = await ZAI.create();
-          const scoreResponse = await zai.chat.completions.create({
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an M&A deal scoring assistant. Score companies from 0-100 based on their attractiveness as acquisition targets. Reply with ONLY a number between 0 and 100.',
-              },
-              {
-                role: 'user',
-                content: `Score this company as an M&A target (0-100): ${result.nom_raison_sociale}, Sector: ${result.section_activites_principales}, Category: ${result.categorie_entreprise}, Legal form: ${result.nature_juridique}`,
-              },
-            ],
-          });
-          const scoreText = scoreResponse.choices?.[0]?.message?.content?.trim();
+          const gemma4 = getGemma4();
+          const scoreResponse = await gemma4.chat(
+            [{
+              role: 'user',
+              content: `Score this company as an M&A target (0-100): ${result.nom_raison_sociale}, Sector: ${result.section_activites_principales}, Category: ${result.categorie_entreprise}, Legal form: ${result.nature_juridique}. Reply with ONLY a number between 0 and 100.`,
+            }],
+            { temperature: 0.3 }
+          );
+          const scoreText = scoreResponse.content.trim();
           const parsedScore = parseInt(scoreText || '', 10);
           if (!isNaN(parsedScore) && parsedScore >= 0 && parsedScore <= 100) {
             icpScore = parsedScore;
           }
         } catch {
-          icpScore = Math.floor(Math.random() * 40) + 50;
+          icpScore = null; // Don't fake scores — better to show no score than a misleading one
         }
 
         const company = await db.targetCompany.create({

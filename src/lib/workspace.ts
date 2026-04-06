@@ -1,4 +1,5 @@
-// NOTE: Currently unused — reserved for future workspace resolution logic
+// NOTE: In production, use a database unique constraint (slug) to handle race conditions at the DB level.
+// This is already handled by @unique on slug in the Prisma schema.
 
 /**
  * Workspace helper — single source of truth for workspace resolution.

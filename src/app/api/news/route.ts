@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-guard';
 import { safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse } from '@/lib/security';
+import ZAI from 'z-ai-web-dev-sdk';
 
 // GET /api/news
 export async function GET(request: NextRequest) {
@@ -259,7 +260,29 @@ function dedup(items: any[]): any[] {
 }
 
 // TODO: Implementer avec z-ai-web-dev-sdk pour la recherche web
-async function searchViaSDK(_query: string, _num: number): Promise<any[]> {
+async function searchViaSDK(query: string, num: number): Promise<any[]> {
+  try {
+    const zai = await ZAI.create();
+    const result = await zai.functions.invoke('web_search', {
+      query,
+      num,
+    });
+    if (Array.isArray(result) && result.length > 0) {
+      return result.map((item: any) => ({
+        title: item.name || '',
+        snippet: item.snippet || '',
+        url: item.url || '',
+        hostName: '',
+        favicon: '',
+        date: item.date || '',
+        category: '',
+        source: 'medium',
+        sourceName: item.host_name || '',
+      }));
+    }
+  } catch (error) {
+    console.error('[news] SDK search failed:', error);
+  }
   return [];
 }
 

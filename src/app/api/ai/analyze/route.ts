@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
+import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse, validateCsrf, isValidId } from '@/lib/security';
 import { getGemma4, type CompanyData } from '@/lib/gemma4';
-import { isValidId } from '@/lib/security';
 import { z } from 'zod';
 
 const analyzeRequestSchema = z.object({
@@ -34,6 +33,10 @@ export async function POST(request: NextRequest) {
 
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
+
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
 
   try {
     const body = await request.json();

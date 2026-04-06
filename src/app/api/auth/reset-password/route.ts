@@ -3,16 +3,11 @@ import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { z } from 'zod';
 import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
+import { passwordSchema } from '@/lib/validators';
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Le token est requis').max(256),
-  password: z
-    .string()
-    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
-    .max(128, 'Le mot de passe est trop long')
-    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
-    .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
-    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
+  password: passwordSchema,
 });
 
 // POST /api/auth/reset-password

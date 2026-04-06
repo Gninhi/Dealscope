@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { z } from 'zod';
-import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse } from '@/lib/security';
+import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse, validateCsrf } from '@/lib/security';
 import { passwordSchema } from '@/lib/validators';
 
 const registerSchema = z.object({
@@ -17,6 +17,11 @@ export async function POST(request: NextRequest) {
   const clientIp = getClientIp(request);
   if (isRateLimited(clientIp, 5, 60 * 1000)) {
     return rateLimitedResponse();
+  }
+
+  // CSRF protection for registration
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
   try {

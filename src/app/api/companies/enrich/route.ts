@@ -110,7 +110,8 @@ export async function GET(request: NextRequest) {
       if (gouvResult.nature_juridique) updateData.natureJuridique = gouvResult.nature_juridique;
       if (gouvResult.categorie_entreprise) updateData.categorieEntreprise = gouvResult.categorie_entreprise;
       if (gouvResult.ca != null) updateData.revenue = gouvResult.ca;
-      if (gouvResult.nombre_etablissements_ouvert != null) updateData.employeeCount = gouvResult.nombre_etablissements_ouvert;
+      // NOTE: Do NOT set employeeCount from nombre_etablissements_ouvert —
+      // that field is the number of open establishments, NOT employee count.
       if (gouvResult.coordonnees?.lat) updateData.latitude = parseFloat(gouvResult.coordonnees.lat);
       if (gouvResult.coordonnees?.lon) updateData.longitude = parseFloat(gouvResult.coordonnees.lon);
     }

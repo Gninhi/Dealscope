@@ -43,8 +43,12 @@ function mapStatutFilter(statut: string): string {
 /**
  * Recherche d'entreprises via l'API InfoGreffe OpenData avec tous les filtres supportés.
  */
-function sanitizeInput(input: string): string {
-  return input.replace(/[%_\"\\]/g, '').trim();
+function escapeSqlInput(input: string): string {
+  return input
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "''")
+    .replace(/;/g, '')
+    .trim();
 }
 
 export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGreffeRecord[]> {
@@ -59,7 +63,7 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
 
   // Recherche textuelle
   if (filters.query) {
-    conditions.push(`denomination ILIKE "%${sanitizeInput(filters.query)}%"`);
+    conditions.push(`denomination ILIKE "%${escapeSqlInput(filters.query)}%"`);
   }
 
   // Filtres de localisation
@@ -73,7 +77,7 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
     conditions.push(`region="${filters.region}"`);
   }
   if (filters.commune) {
-    conditions.push(`ville ILIKE "%${sanitizeInput(filters.commune)}%"`);
+    conditions.push(`ville ILIKE "%${escapeSqlInput(filters.commune)}%"`);
   }
 
   // Filtres secteur / juridique
@@ -81,7 +85,7 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
     conditions.push(`code_ape LIKE "${filters.codeNaf}%"`);
   }
   if (filters.natureJuridique) {
-    conditions.push(`forme_juridique ILIKE "%${sanitizeInput(filters.natureJuridique)}%"`);
+    conditions.push(`forme_juridique ILIKE "%${escapeSqlInput(filters.natureJuridique)}%"`);
   }
 
   // NOUVEAU: Filtre par statut
