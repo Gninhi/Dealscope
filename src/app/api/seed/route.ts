@@ -7,6 +7,11 @@ import { validateCsrf, safeErrorResponse } from '@/lib/security';
 // POST /api/seed - seed demo data avec de VRAIES entreprises françaises
 // SECURITY: Admin only, CSRF protected
 export async function POST(request: NextRequest) {
+  // CRITICAL: Disable in production — seed is a dev/debug tool only
+  if (process.env.NODE_ENV === 'production') {
+    return safeErrorResponse('Endpoint désactivé en production', 403);
+  }
+
   // Require admin role
   const authResult = await requireAdmin(request);
   if (authResult instanceof NextResponse) return authResult;

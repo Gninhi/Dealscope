@@ -1,3 +1,5 @@
+// NOTE: Currently unused — reserved for future workspace resolution logic
+
 /**
  * Workspace helper — single source of truth for workspace resolution.
  * Filters by the canonical slug 'dealscope' to ensure consistency

@@ -5,6 +5,15 @@
 
 import { z } from 'zod';
 
+// ─── Shared password schema ────────────────────────────────────
+
+export const passwordSchema = z.string()
+  .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+  .max(128, 'Le mot de passe trop long')
+  .regex(/[A-Z]/, 'Doit contenir au moins une majuscule')
+  .regex(/[a-z]/, 'Doit contenir au moins une minuscule')
+  .regex(/[0-9]/, 'Doit contenir au moins un chiffre');
+
 // ─── Company validators ───────────────────────────────────────
 
 export const createCompanySchema = z.object({
@@ -26,13 +35,14 @@ export const createCompanySchema = z.object({
   revenue: z.number().min(0).optional().default(0),
   icpScore: z.number().min(0).max(100).optional().default(0),
   source: z.string().max(50).optional().default('api_gouv'),
+  notes: z.string().max(50000).optional(),
 });
 
 export const updateCompanySchema = z.object({
   notes: z.string().max(50000).optional(),
   icpScore: z.number().min(0).max(100).optional(),
   status: z.enum([
-    'identified',
+    'identifiees',
     'a_contacter',
     'contactees',
     'qualifiees',
@@ -51,7 +61,7 @@ export const patchCompanySchema = z.object({
   id: z.string().min(1, 'ID requis'),
   notes: z.string().max(50000).optional(),
   status: z.enum([
-    'identified',
+    'identifiees',
     'a_contacter',
     'contactees',
     'qualifiees',
@@ -119,6 +129,7 @@ export const scanSchema = z.object({
 export const chatMessageSchema = z.object({
   message: z.string().min(1, 'Message requis').max(5000, 'Message trop long (max 5000 caractères)'),
   conversationId: z.string().max(128).optional(),
+  model: z.enum(['gemma4']).optional().default('gemma4'),
 });
 
 // ─── ICP Profile validators ───────────────────────────────────
@@ -185,7 +196,7 @@ export const newsSearchSchema = z.object({
 export const searchSchema = z.object({
   q: z.string().min(1, 'Requête requise').max(500),
   page: z.number().int().min(1).max(100).optional().default(1),
-  per_page: z.number().int().min(1).max(25).optional().default(10),
+  limit: z.number().int().min(1).max(25).optional().default(20),
 });
 
 // ─── News Summary validators ──────────────────────────────────

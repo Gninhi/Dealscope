@@ -8,8 +8,7 @@ import {
   Landmark, Activity, Clock, FileText, Database, RefreshCw,
   CheckCircle2, ArrowUpRight, Tag
 } from 'lucide-react';
-import { formatCurrency, formatNumber, formatDate, getScoreColor, getScoreLabel, getStageLabel, getStageColor } from '@/lib/utils';
-import { PIPELINE_STAGES } from '@/lib/types';
+import { formatCurrency, formatNumber, formatDate, getScoreColor, getScoreLabel, getStageLabel, getStageColor, getStatutBadgeClass, getStatutLabel } from '@/lib/utils';
 import type { CompanyWithRelations } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 
@@ -82,14 +81,19 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
   const [activeTab, setActiveTab] = useState<'overview' | 'financial' | 'legal' | 'network'>('overview');
 
   useEffect(() => {
-    loadData();
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
   }, [companyId, siren]);
 
-  const loadData = async () => {
+  const loadData = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      // 1. Récupérer l'entreprise depuis la DB
-      const compRes = await fetch('/api/companies');
+      // Use query parameter to fetch a specific company instead of all
+      const params = new URLSearchParams();
+      if (companyId) params.set('id', companyId);
+      else if (siren) params.set('siren', siren);
+      const compRes = await fetch(`/api/companies?${params.toString()}`, { signal });
       if (!compRes.ok) throw new Error('Failed to load company');
       const compText = await compRes.text();
       let allData: any;
@@ -97,11 +101,11 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
       let foundCompany: CompanyWithRelations | null = null;
 
       if (companyId) {
-        foundCompany = Array.isArray(allData) ? allData.find((c: any) => c.id === companyId) : null;
+        foundCompany = Array.isArray(allData) ? allData.find((c: any) => c.id === companyId) : allData;
       }
 
       if (!foundCompany && siren) {
-        foundCompany = Array.isArray(allData) ? allData.find((c: any) => c.siren === siren) : null;
+        foundCompany = Array.isArray(allData) ? allData.find((c: any) => c.siren === siren) : allData;
       }
 
       if (foundCompany) {
@@ -110,6 +114,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
       }
       // Si pas dans la DB, on utilise les données de recherche (searchResult)
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       console.error('Erreur chargement profil:', error);
     } finally {
       setLoading(false);
@@ -247,24 +252,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
     );
   }
 
-  // Badge de statut
-  const getStatutBadgeClass = (statut?: string) => {
-    if (!statut) return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-    const s = statut.toLowerCase();
-    if (s === 'active') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    if (s === 'cessée' || s === 'cessee') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-    if (s === 'radiée' || s === 'radiee') return 'bg-red-500/10 text-red-400 border-red-500/20';
-    return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-  };
-
-  const getStatutLabel = (statut?: string) => {
-    if (!statut) return '—';
-    const s = statut.toLowerCase();
-    if (s === 'active') return 'Active';
-    if (s === 'cessée' || s === 'cessee') return 'Cessée';
-    if (s === 'radiée' || s === 'radiee') return 'Radiée';
-    return statut;
-  };
+  // getStatutBadgeClass and getStatutLabel are now imported from @/lib/utils
 
   // caTrend est déjà calculé plus haut (avant les returns conditionnels)
 

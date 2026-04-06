@@ -296,15 +296,6 @@ export interface ICPProfileData {
   createdAt: string;
 }
 
-export interface DashboardStats {
-  totalCompanies: number;
-  pipelineByStage: Record<string, number>;
-  recentCompanies: CompanyWithRelations[];
-  topSectors: { sector: string; count: number }[];
-  avgIcpScore: number;
-  companiesBySource: { source: string; count: number }[];
-}
-
 export interface SearchFilters {
   query: string;
   departement?: string;

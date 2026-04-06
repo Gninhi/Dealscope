@@ -89,18 +89,5 @@ export async function requireAdmin(
   return authResult;
 }
 
-/**
- * Helper to unwrap requireAuth — throws if not authenticated.
- * Use in try/catch blocks for cleaner route code.
- */
-export function unwrapAuth(
-  result: AuthenticatedUser | NextResponse,
-): AuthenticatedUser {
-  if (result instanceof NextResponse) {
-    throw new Error('Unauthorized');
-  }
-  return result;
-}
-
 // Re-export convenience functions
 export { getClientIp, safeErrorResponse };

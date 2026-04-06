@@ -24,6 +24,7 @@ export default function ChatTab() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const copiedTimeoutRef = useRef<NodeJS.Timeout>(null);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -41,6 +42,10 @@ export default function ChatTab() {
   }, [fetchMessages]);
 
   useEffect(() => {
+    return () => { if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current); };
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -48,7 +53,8 @@ export default function ChatTab() {
     try {
       await navigator.clipboard.writeText(content);
       setCopiedId(msgId);
-      setTimeout(() => setCopiedId(null), 2000);
+      if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+      copiedTimeoutRef.current = setTimeout(() => setCopiedId(null), 2000);
     } catch {
       // Fallback: do nothing
     }

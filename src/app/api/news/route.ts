@@ -20,9 +20,11 @@ export async function GET(request: NextRequest) {
   const refresh = searchParams.get('refresh') === 'true';
 
   try {
+    const workspaceId = authResult.workspaceId;
+
     // ── Veille (custom search) ──
     if (query) {
-      const ck = `q:${query}`;
+      const ck = `${workspaceId}:q:${query}`;
       if (!refresh && cache.has(ck)) {
         const c = cache.get(ck)!;
         if (Date.now() - c.ts < TTL)
@@ -55,7 +57,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Cached ──
-    const ck = `cat:${category}`;
+    const ck = `${workspaceId}:cat:${category}`;
     if (!refresh && cache.has(ck)) {
       const c = cache.get(ck)!;
       if (Date.now() - c.ts < TTL)
@@ -97,8 +99,8 @@ export async function GET(request: NextRequest) {
       const tb = tierOrder[b.source] ?? 2;
       if (ta !== tb) return ta - tb;
       const da = a.date ? new Date(a.date).getTime() : 0;
-      const db2 = b.date ? new Date(b.date).getTime() : 0;
-      return db2 - da;
+      const timeB = b.date ? new Date(b.date).getTime() : 0;
+      return timeB - da;
     });
 
     cache.set(ck, { data: items, ts: Date.now() });
@@ -256,6 +258,7 @@ function dedup(items: any[]): any[] {
   });
 }
 
+// TODO: Implementer avec z-ai-web-dev-sdk pour la recherche web
 async function searchViaSDK(_query: string, _num: number): Promise<any[]> {
   return [];
 }

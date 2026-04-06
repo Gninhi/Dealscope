@@ -76,21 +76,6 @@ export function isRateLimited(
   return false;
 }
 
-/**
- * Get remaining requests and reset time for rate limit headers.
- */
-export function getRateLimitInfo(ip: string, maxRequests: number = 10, windowMs: number = 60 * 1000) {
-  const entry = rateLimitMap.get(ip);
-  const now = Date.now();
-  const resetAt = entry?.resetAt || now + windowMs;
-  const remaining = Math.max(0, maxRequests - (entry?.count || 0));
-
-  return {
-    remaining,
-    resetAt: Math.ceil((resetAt - now) / 1000),
-  };
-}
-
 // ── Request Body Size Limiter ───────────────────────────────────
 
 const MAX_BODY_SIZE = 1 * 1024 * 1024; // 1 MB
@@ -149,35 +134,6 @@ export function validateCsrf(request: NextRequest): boolean {
 
 export function sanitizeInput(input: string, maxLength: number = 10000): string {
   return input.replace(/\0/g, '').trim().slice(0, maxLength);
-}
-
-export function sanitizeSiren(siren: string): string | null {
-  const cleaned = siren.replace(/\D/g, '').slice(0, 9);
-  return cleaned.length === 9 ? cleaned : null;
-}
-
-// ── Security Headers ─────────────────────────────────────────────
-// NOTE: X-Frame-Options supprimé — géré par frame-ancestors dans le middleware
-// NOTE: Cache-Control supprimé — géré par le middleware
-
-export function getSecurityHeaders(): HeadersInit {
-  return {
-    'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  };
-}
-
-export function securityResponse(
-  body?: BodyInit | null,
-  init?: ResponseInit,
-): NextResponse {
-  const response = NextResponse.json(body, init);
-  const headers = getSecurityHeaders();
-  for (const [key, value] of Object.entries(headers)) {
-    response.headers.set(key, value);
-  }
-  return response;
 }
 
 export function safeErrorResponse(

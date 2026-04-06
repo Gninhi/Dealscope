@@ -3,16 +3,11 @@ import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { z } from 'zod';
 import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse } from '@/lib/security';
+import { passwordSchema } from '@/lib/validators';
 
 const setupSchema = z.object({
   email: z.string().email('Email invalide').max(254).toLowerCase().trim(),
-  password: z
-    .string()
-    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
-    .max(128, 'Le mot de passe est trop long')
-    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
-    .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
-    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
+  password: passwordSchema,
   firstName: z.string().min(1, 'Le prénom est requis').max(100).trim(),
   lastName: z.string().min(1, 'Le nom est requis').max(100).trim(),
   companyName: z.string().min(1, "Le nom de l'entreprise est requis").max(200).trim(),
@@ -65,34 +60,39 @@ export async function POST(request: NextRequest) {
 
     const { email, password, firstName, lastName, companyName } = parsed.data;
 
-    // Create workspace
-    const workspace = await db.workspace.create({
-      data: {
-        name: sanitizeInput(companyName, 200),
-        slug: 'dealscope',
-        plan: 'pro',
-      },
-    });
+    // Wrap all DB operations in a transaction for atomicity
+    const { user, workspace } = await db.$transaction(async (tx) => {
+      // Create workspace
+      const workspace = await tx.workspace.create({
+        data: {
+          name: sanitizeInput(companyName, 200),
+          slug: 'dealscope',
+          plan: 'pro',
+        },
+      });
 
-    // Hash password and create admin user
-    const hashedPassword = await hashPassword(password);
-    const user = await db.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        firstName: sanitizeInput(firstName, 100),
-        lastName: sanitizeInput(lastName, 100),
-        role: 'admin',
-        workspaceId: workspace.id,
-        emailVerified: true,
-      },
-    });
+      // Hash password and create admin user
+      const hashedPassword = await hashPassword(password);
+      const user = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          firstName: sanitizeInput(firstName, 100),
+          lastName: sanitizeInput(lastName, 100),
+          role: 'admin',
+          workspaceId: workspace.id,
+          emailVerified: true,
+        },
+      });
 
-    // Mark setup as done
-    await db.appSetting.upsert({
-      where: { id: 'app' },
-      update: { isFirstSetup: false },
-      create: { id: 'app', isFirstSetup: false },
+      // Mark setup as done
+      await tx.appSetting.upsert({
+        where: { id: 'app' },
+        update: { isFirstSetup: false },
+        create: { id: 'app', isFirstSetup: false },
+      });
+
+      return { user, workspace };
     });
 
     return NextResponse.json(

@@ -47,6 +47,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results, total: results.length });
   } catch (error) {
     console.error('InfoGreffe search error:', error);
-    return safeErrorResponse('Search failed', 500);
+    return safeErrorResponse('Recherche échouée', 500);
   }
 }

@@ -43,8 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { message } = parsed.data;
-    const model = body.model || 'gemma4';
+    const { message, model } = parsed.data;
 
     const workspaceId = authResult.workspaceId;
 
@@ -116,7 +115,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Chat error:', error);
-    return safeErrorResponse('Chat failed', 500);
+    return safeErrorResponse('Échec du chat', 500);
   }
 }
 
@@ -143,6 +142,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ messages, suggestedPrompts: SUGGESTED_PROMPTS });
   } catch (error) {
     console.error('Error fetching chat history:', error);
-    return safeErrorResponse('Failed to fetch chat history', 500);
+    return safeErrorResponse('Échec du chargement de l\'historique', 500);
   }
 }

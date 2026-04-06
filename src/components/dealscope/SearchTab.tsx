@@ -8,13 +8,12 @@ import {
   DollarSign, CalendarDays, ArrowUpDown, Landmark
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
-import { formatCurrency, formatNumber, formatDate } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatDate, getStageLabel, getStageColor, getStatutBadgeClass, getStatutLabel } from '@/lib/utils';
 import {
   REGIONS, NAF_SECTIONS, CATEGORIES_ENTREPRISE, FORMES_JURIDIQUES,
   TRANCHES_CA, STATUTS_ENTREPRISE, SORT_OPTIONS
 } from '@/lib/types';
 import type { CombinedSearchResult } from '@/lib/types';
-import { getStageLabel, getStageColor } from '@/lib/utils';
 import CompanyProfileDialog from './CompanyProfileDialog';
 
 export default function SearchTab() {
@@ -184,25 +183,6 @@ export default function SearchTab() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSearch();
-  };
-
-  // Couleur du badge de statut
-  const getStatutBadgeClass = (statut?: string) => {
-    if (!statut) return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-    const s = statut.toLowerCase();
-    if (s === 'active') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    if (s === 'cessée' || s === 'cessee') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-    if (s === 'radiée' || s === 'radiee') return 'bg-red-500/10 text-red-400 border-red-500/20';
-    return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-  };
-
-  const getStatutLabel = (statut?: string) => {
-    if (!statut) return '—';
-    const s = statut.toLowerCase();
-    if (s === 'active') return 'Active';
-    if (s === 'cessée' || s === 'cessee') return 'Cessée';
-    if (s === 'radiée' || s === 'radiee') return 'Radiée';
-    return statut;
   };
 
   return (

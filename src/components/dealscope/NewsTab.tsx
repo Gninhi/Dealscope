@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Newspaper, ExternalLink, Loader2, Globe, Clock, RefreshCw,
-  Search, Bell, Bookmark, BookmarkPlus, BookmarkCheck,
+  Search, BookmarkPlus, BookmarkCheck,
   Star, Eye, EyeOff, X, Layers, Trophy, Clock as ClockIcon,
   TrendingUp, Shield, Cpu, Landmark, Building2, Sparkles,
-  AlertCircle, Plus, Trash2, ToggleLeft, ToggleRight,
-  Check, ArrowUpRight,
+  AlertCircle, ArrowUpRight,
 } from 'lucide-react';
 import { timeAgo } from '@/lib/utils';
 

@@ -3,16 +3,11 @@ import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { z } from 'zod';
 import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse } from '@/lib/security';
+import { passwordSchema } from '@/lib/validators';
 
 const registerSchema = z.object({
   email: z.string().email('Email invalide').max(254).toLowerCase().trim(),
-  password: z
-    .string()
-    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
-    .max(128, 'Le mot de passe est trop long')
-    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
-    .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
-    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
+  password: passwordSchema,
   firstName: z.string().min(1, 'Le prénom est requis').max(100).trim(),
   lastName: z.string().min(1, 'Le nom est requis').max(100).trim(),
 });
@@ -48,39 +43,45 @@ export async function POST(request: NextRequest) {
 
     // Ensure workspace exists
     const existingWorkspace = await db.workspace.findFirst();
-    let workspaceId: string;
 
-    if (existingWorkspace) {
-      workspaceId = existingWorkspace.id;
-    } else {
-      const workspace = await db.workspace.create({
+    // Wrap workspace + user + appSetting creation in a transaction
+    const { user } = await db.$transaction(async (tx) => {
+      let wsId: string;
+
+      if (existingWorkspace) {
+        wsId = existingWorkspace.id;
+      } else {
+        const workspace = await tx.workspace.create({
+          data: {
+            name: 'DealScope Workspace',
+            slug: 'dealscope',
+            plan: 'pro',
+          },
+        });
+        wsId = workspace.id;
+      }
+
+      // Hash password and create user
+      const hashedPassword = await hashPassword(password);
+      const user = await tx.user.create({
         data: {
-          name: 'DealScope Workspace',
-          slug: 'dealscope',
-          plan: 'pro',
+          email,
+          password: hashedPassword,
+          firstName: sanitizeInput(firstName, 100),
+          lastName: sanitizeInput(lastName, 100),
+          role: 'member',
+          workspaceId: wsId,
         },
       });
-      workspaceId = workspace.id;
-    }
 
-    // Hash password and create user
-    const hashedPassword = await hashPassword(password);
-    const user = await db.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        firstName: sanitizeInput(firstName, 100),
-        lastName: sanitizeInput(lastName, 100),
-        role: 'member',
-        workspaceId,
-      },
-    });
+      // Update AppSetting if this is the first user
+      await tx.appSetting.upsert({
+        where: { id: 'app' },
+        update: {},
+        create: { id: 'app', isFirstSetup: false },
+      });
 
-    // Update AppSetting if this is the first user
-    await db.appSetting.upsert({
-      where: { id: 'app' },
-      update: {},
-      create: { id: 'app', isFirstSetup: false },
+      return { user };
     });
 
     return NextResponse.json(

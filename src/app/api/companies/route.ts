@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         icpScore: parsed.data.icpScore != null ? Number(parsed.data.icpScore) : null,
         source: sanitizeInput(parsed.data.source || 'manual', 50),
         status,
-        notes: sanitizeInput(String(body.notes || ''), 50000),
+        notes: sanitizeInput(parsed.data.notes || '', 50000),
         pipelineStages: {
           create: {
             stage: status,

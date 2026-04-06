@@ -62,18 +62,20 @@ export async function GET(request: NextRequest) {
     const callApiGouv = filters.source === 'all' || filters.source === 'api-gouv';
     const callInfoGreffe = filters.source === 'all' || filters.source === 'infogreffe';
 
-    const promises: Promise<any>[] = [];
-    if (callApiGouv) promises.push(searchApiGouv(filters));
-    if (callInfoGreffe) promises.push(searchInfoGreffe(filters));
+    // Build promises with named references for safe access
+    let apiGouvPromise: Promise<any> | null = null;
+    let infoGreffePromise: Promise<any> | null = null;
+    if (callApiGouv) apiGouvPromise = searchApiGouv(filters);
+    if (callInfoGreffe) infoGreffePromise = searchInfoGreffe(filters);
 
+    const promises = [apiGouvPromise, infoGreffePromise].filter(Boolean) as Promise<any>[];
     const settledResults = await Promise.allSettled(promises);
 
-    const apiGouvData = (callApiGouv && settledResults[0]?.status === 'fulfilled')
+    const apiGouvData = (callApiGouv && apiGouvPromise && settledResults[0]?.status === 'fulfilled')
       ? (settledResults[0] as PromiseFulfilledResult<any>).value
       : [];
 
-    const infoGreffeData = (callInfoGreffe
-      && settledResults[(callApiGouv ? 1 : 0)]?.status === 'fulfilled')
+    const infoGreffeData = (callInfoGreffe && infoGreffePromise && settledResults[(callApiGouv ? 1 : 0)]?.status === 'fulfilled')
       ? (settledResults[(callApiGouv ? 1 : 0)] as PromiseFulfilledResult<any>).value
       : [];
 

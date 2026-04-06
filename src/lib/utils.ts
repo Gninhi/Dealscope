@@ -1,10 +1,8 @@
-export async function safeJson<T = unknown>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  const text = await res.text();
-  if (text.startsWith('<!DOCTYPE') || text.startsWith('<html') || text.startsWith('<HTML')) {
-    throw new Error('Received HTML instead of JSON');
-  }
-  return JSON.parse(text) as T;
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }
 
 export function formatCurrency(value: number | null | undefined): string {
@@ -25,13 +23,6 @@ export function formatDate(date: string | Date): string {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(date));
-}
-
-export function formatDateShort(date: string | Date): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'short',
   }).format(new Date(date));
 }
 
@@ -104,6 +95,20 @@ export function timeAgo(date: string | Date): string {
   return formatDate(date);
 }
 
-export function cn(...inputs: (string | boolean | undefined | null)[]): string {
-  return inputs.filter(Boolean).join(' ');
+export function getStatutBadgeClass(statut?: string): string {
+  if (!statut) return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+  const s = statut.toLowerCase();
+  if (s === 'active') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  if (s === 'cessée' || s === 'cessee') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+  if (s === 'radiée' || s === 'radiee') return 'bg-red-500/10 text-red-400 border-red-500/20';
+  return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+}
+
+export function getStatutLabel(statut?: string): string {
+  if (!statut) return '—';
+  const s = statut.toLowerCase();
+  if (s === 'active') return 'Active';
+  if (s === 'cessée' || s === 'cessee') return 'Cessée';
+  if (s === 'radiée' || s === 'radiee') return 'Radiée';
+  return statut;
 }

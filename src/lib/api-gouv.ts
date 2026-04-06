@@ -94,32 +94,3 @@ export async function searchApiGouv(filters: SearchFilters): Promise<CompanySear
   }
 }
 
-export async function getCompanyBySiren(siren: string): Promise<CompanySearchResult | null> {
-  try {
-    const response = await fetch(`${API_GOUV_BASE}?q=siren:${siren}`, {
-      headers: {
-        'Accept': 'application/json',
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!response.ok) {
-      console.error('API Gouv error:', response.status);
-      return null;
-    }
-
-    const text2 = await response.text();
-    if (text2.startsWith('<!DOCTYPE') || text2.startsWith('<html')) {
-      console.error('API returned HTML instead of JSON');
-      return null;
-    }
-    const data = JSON.parse(text2);
-    if (data.results && data.results.length > 0) {
-      return data.results[0];
-    }
-    return null;
-  } catch (error) {
-    console.error('API Gouv SIREN lookup error:', error);
-    return null;
-  }
-}

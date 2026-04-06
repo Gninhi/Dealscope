@@ -4,6 +4,25 @@ import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import { getGemma4, type CompanyData } from '@/lib/gemma4';
 import { isValidId } from '@/lib/security';
+import { z } from 'zod';
+
+const analyzeRequestSchema = z.object({
+  companyId: z.string().optional(),
+  companyData: z.object({
+    name: z.string(),
+    siren: z.string().optional(),
+    sector: z.string().optional(),
+    city: z.string().optional(),
+    postalCode: z.string().optional(),
+    revenue: z.number().optional(),
+    employeeCount: z.number().optional(),
+    nafCode: z.string().optional(),
+    nafLabel: z.string().optional(),
+    region: z.string().optional(),
+    dateImmatriculation: z.string().optional(),
+    notes: z.string().optional(),
+  }).optional(),
+});
 
 // POST /api/ai/analyze — SSE streaming company analysis
 export async function POST(request: NextRequest) {
@@ -18,10 +37,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { companyId, companyData } = body as {
-      companyId?: string;
-      companyData?: CompanyData;
-    };
+    const parsed = analyzeRequestSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
+    }
+
+    const { companyId, companyData } = parsed.data;
 
     // Resolve company data: either from companyId or direct payload
     let resolvedCompany: CompanyData;
@@ -121,7 +146,7 @@ export async function POST(request: NextRequest) {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         } catch (error) {
           console.error('[AI Analyze] Error:', error);
-          const errorMsg = error instanceof Error ? error.message : 'Erreur lors de l\'analyse IA';
+          const errorMsg = 'Erreur lors de l\'analyse IA. Veuillez réessayer.';
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: 'error', content: errorMsg })}\n\n`,

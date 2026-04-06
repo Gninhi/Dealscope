@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const stages = await db.pipelineStage.findMany({
       where: { company: { workspaceId: authResult.workspaceId } },
       orderBy: { movedAt: 'desc' },
+      take: 500,
       include: {
         company: {
           include: {

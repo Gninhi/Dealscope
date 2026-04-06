@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSession, signIn } from 'next-auth/react';
-import { ThemeProvider } from 'next-themes';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import Sidebar from '@/components/dealscope/Sidebar';
 import DashboardTab from '@/components/dealscope/DashboardTab';
@@ -137,7 +136,8 @@ function AppContent() {
   const { activeTab, sidebarOpen, setCompanies } = useDealScopeStore();
 
   useEffect(() => {
-    fetch('/api/companies')
+    const controller = new AbortController();
+    fetch('/api/companies', { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.text();
@@ -149,6 +149,7 @@ function AppContent() {
         } catch { /* ignore */ }
       })
       .catch(() => {});
+    return () => controller.abort();
   }, [setCompanies]);
 
   const renderTab = () => {
@@ -191,25 +192,8 @@ function AppContent() {
 export default function Home() {
   const { data: session, status } = useSession();
 
-  // Unauthenticated → show login form
-  if (status === 'unauthenticated' || !session) {
-    return (
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center min-h-screen bg-background">
-              <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
-            </div>
-          }
-        >
-          <LoginForm />
-        </Suspense>
-      </ThemeProvider>
-    );
-  }
-
-  // Loading session
-  if (!session && status === 'loading') {
+  // Loading session FIRST
+  if (status === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
@@ -217,10 +201,21 @@ export default function Home() {
     );
   }
 
+  // Then check unauthenticated
+  if (status === 'unauthenticated') {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center min-h-screen bg-background">
+            <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
+          </div>
+        }
+      >
+        <LoginForm />
+      </Suspense>
+    );
+  }
+
   // Authenticated → show app
-  return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-      <AppContent />
-    </ThemeProvider>
-  );
+  return <AppContent />;
 }

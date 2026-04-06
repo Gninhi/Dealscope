@@ -96,7 +96,8 @@ export async function POST(request: NextRequest) {
     const createdCompanies: any[] = [];
     for (const result of apiGouvResults) {
       try {
-        const existing = await db.targetCompany.findUnique({ where: { siren: result.siren } });
+        // Check SIREN uniqueness within workspace (not global)
+        const existing = await db.targetCompany.findFirst({ where: { siren: result.siren, workspaceId } });
         if (existing) continue;
 
         let icpScore: number | null = null;
@@ -140,7 +141,10 @@ export async function POST(request: NextRequest) {
             latitude: result.coordonnees?.lat ? parseFloat(result.coordonnees.lat) : null,
             longitude: result.coordonnees?.lon ? parseFloat(result.coordonnees.lon) : null,
             revenue: result.ca ?? null,
-            employeeCount: result.nombre_etablissements_ouvert || null,
+            // NOTE: API Gouv does not provide actual employee counts.
+            // nombre_etablissements_ouvert = number of open establishments, NOT employees.
+            // Setting to null to avoid misleading data.
+            employeeCount: null,
             icpScore,
             source: 'scan-api-gouv',
             status: 'identifiees',
@@ -164,7 +168,8 @@ export async function POST(request: NextRequest) {
     for (const result of infoGreffeResults) {
       if (!result.siren || infoGreffeSirens.has(result.siren)) continue;
       try {
-        const existing = await db.targetCompany.findUnique({ where: { siren: result.siren } });
+        // Check SIREN uniqueness within workspace (not global)
+        const existing = await db.targetCompany.findFirst({ where: { siren: result.siren, workspaceId } });
         if (existing) continue;
 
         await db.targetCompany.create({

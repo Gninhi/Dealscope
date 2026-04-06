@@ -4,6 +4,9 @@ import { requireAuth } from '@/lib/api-guard';
 import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 import { searchApiGouv } from '@/lib/api-gouv';
 import { getInfoGreffeBySiren, parseInfoGreffeFinancial } from '@/lib/infogreffe';
+import { z } from 'zod';
+
+const batchEnrichSchema = z.object({ forceAll: z.boolean().optional() });
 
 // GET /api/companies/enrich?id=xxx
 export async function GET(request: NextRequest) {
@@ -158,7 +161,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { forceAll } = body;
+    const parsed = batchEnrichSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Données invalides' },
+        { status: 400 },
+      );
+    }
+
+    const { forceAll } = parsed.data;
 
     // Batch enrich: limit to prevent abuse
     const MAX_BATCH = 50;
