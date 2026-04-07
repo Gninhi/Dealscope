@@ -6,6 +6,7 @@ import {
   FileText, Sparkles
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
+import { apiFetch } from '@/lib/api-client';
 
 interface ScanResult {
   success: boolean;
@@ -25,7 +26,7 @@ export default function ScanTab() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/icp-profiles')
+    apiFetch('/api/icp-profiles')
       .then(res => res.text())
       .then(text => { try { const data = JSON.parse(text); if (Array.isArray(data)) setIcpProfiles(data); } catch (error) { console.error('[ScanTab] Failed to parse ICP profiles:', error); } })
       .catch(() => {});
@@ -42,9 +43,8 @@ export default function ScanTab() {
     setResult(null);
 
     try {
-      const res = await fetch('/api/scan', {
+      const res = await apiFetch('/api/scan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query,
           sector,

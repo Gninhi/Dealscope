@@ -11,6 +11,7 @@ import {
 import { formatCurrency, formatNumber, formatDate, getScoreColor, getScoreLabel, getStageLabel, getStageColor, getStatutBadgeClass, getStatutLabel } from '@/lib/utils';
 import type { CompanyWithRelations } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
+import { apiFetch } from '@/lib/api-client';
 
 import type { CombinedSearchResult } from '@/lib/types';
 
@@ -89,28 +90,32 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
   const loadData = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      // Use query parameter to fetch a specific company instead of all
-      const params = new URLSearchParams();
-      if (companyId) params.set('id', companyId);
-      else if (siren) params.set('siren', siren);
-      const compRes = await fetch(`/api/companies?${params.toString()}`, { signal });
-      if (!compRes.ok) throw new Error('Failed to load company');
-      const compText = await compRes.text();
-      let allData: any;
-      try { allData = JSON.parse(compText); } catch { return; }
-      let foundCompany: CompanyWithRelations | null = null;
-
       if (companyId) {
-        foundCompany = Array.isArray(allData) ? allData.find((c: any) => c.id === companyId) : allData;
-      }
-
-      if (!foundCompany && siren) {
-        foundCompany = Array.isArray(allData) ? allData.find((c: any) => c.siren === siren) : allData;
-      }
-
-      if (foundCompany) {
-        setCompany(foundCompany);
-        setNotesValue(foundCompany.notes || '');
+        // Use dedicated single-company endpoint
+        const compRes = await apiFetch(`/api/companies/${companyId}`, { signal });
+        if (compRes.ok) {
+          const compText = await compRes.text();
+          try {
+            const foundCompany = JSON.parse(compText);
+            setCompany(foundCompany);
+            setNotesValue(foundCompany.notes || '');
+          } catch { /* parse error, searchResult may still be used */ }
+        }
+      } else if (siren) {
+        // Fallback: search by siren via query param
+        const compRes = await apiFetch(`/api/companies?siren=${encodeURIComponent(siren)}`, { signal });
+        if (compRes.ok) {
+          const compText = await compRes.text();
+          try {
+            const allData = JSON.parse(compText);
+            const list = Array.isArray(allData.companies) ? allData.companies : (Array.isArray(allData) ? allData : []);
+            const foundCompany = list.find((c: any) => c.siren === siren);
+            if (foundCompany) {
+              setCompany(foundCompany);
+              setNotesValue(foundCompany.notes || '');
+            }
+          } catch { /* parse error */ }
+        }
       }
       // Si pas dans la DB, on utilise les données de recherche (searchResult)
     } catch (error) {
@@ -125,7 +130,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
     if (!company) return;
     setEnriching(true);
     try {
-      const res = await fetch(`/api/companies/enrich?id=${company.id}`);
+      const res = await apiFetch(`/api/companies/enrich?id=${company.id}`);
       if (res.ok) {
         const data = await res.json();
         if (data.company) {
@@ -144,9 +149,8 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
     if (!company) return;
     setSavingNotes(true);
     try {
-      await fetch('/api/companies', {
+      await apiFetch('/api/companies', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: company.id, notes: notesValue }),
       });
       setCompany({ ...company, notes: notesValue });
@@ -162,7 +166,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
   const handleDelete = async () => {
     if (!company || !confirm('Supprimer cette entreprise ?')) return;
     try {
-      await fetch(`/api/companies?id=${company.id}`, { method: 'DELETE' });
+      await apiFetch(`/api/companies?id=${company.id}`, { method: 'DELETE' });
       onRefresh?.();
       onClose();
     } catch (error) {

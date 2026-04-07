@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { formatCurrency, formatNumber, formatDate, getStageLabel, getStageColor, getStatutBadgeClass, getStatutLabel } from '@/lib/utils';
+import { apiFetch } from '@/lib/api-client';
 import {
   REGIONS, NAF_SECTIONS, CATEGORIES_ENTREPRISE, FORMES_JURIDIQUES,
   TRANCHES_CA, STATUTS_ENTREPRISE, SORT_OPTIONS
@@ -68,7 +69,7 @@ export default function SearchTab() {
       params.set('page', String(currentPage));
       params.set('limit', String(searchFilters.limit || 20));
 
-      const res = await fetch(`/api/companies/combined-search?${params.toString()}`);
+      const res = await apiFetch(`/api/companies/combined-search?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setSearchResults(data.results || []);
@@ -125,9 +126,8 @@ export default function SearchTab() {
   const handleAddToPipeline = async (result: CombinedSearchResult) => {
     setAddingToPipeline(prev => new Set(prev).add(result.siren));
     try {
-      const res = await fetch('/api/companies', {
+      const res = await apiFetch('/api/companies', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           siren: result.siren,
           name: result.name,

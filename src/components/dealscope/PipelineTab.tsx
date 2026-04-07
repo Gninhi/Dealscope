@@ -6,10 +6,12 @@ import {
   TrendingUp, Briefcase, Loader2, ArrowUpRight,
   CheckCircle2
 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { getStageDotColor, formatCurrency, formatNumber, timeAgo } from '@/lib/utils';
 import { PIPELINE_STAGES } from '@/constants';
 import type { CompanyWithRelations } from '@/lib/types';
+import { apiFetch } from '@/lib/api-client';
 import CompanyProfileDialog from './CompanyProfileDialog';
 import {
   DndContext,
@@ -168,11 +170,11 @@ export default function PipelineTab() {
 
   const fetchPipeline = useCallback(async () => {
     try {
-      const res = await fetch('/api/pipeline');
+      const res = await apiFetch('/api/pipeline');
       if (res.ok) { const text = await res.text(); try { setPipelineData(JSON.parse(text)); } catch (error) { console.error('[PipelineTab] Failed to parse pipeline data:', error); } }
 
       // Also refresh companies
-      const compRes = await fetch('/api/companies');
+      const compRes = await apiFetch('/api/companies');
       if (compRes.ok) { const text = await compRes.text(); try { setCompanies(JSON.parse(text)); } catch (error) { console.error('[PipelineTab] Failed to parse companies data:', error); } }
     } catch (error) {
       console.error('Error fetching pipeline:', error);
@@ -245,10 +247,9 @@ export default function PipelineTab() {
 
     // Update pipeline
     try {
-      await fetch('/api/pipeline', {
+      await apiFetch('/api/pipeline', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId: sourceCompanyId, newStage: targetStage }),
+        body: JSON.stringify({ companyId: sourceCompanyId, stage: targetStage }),
       });
       await fetchPipeline();
     } catch (error) {
@@ -256,14 +257,24 @@ export default function PipelineTab() {
     }
   };
 
+  const [confirmState, setConfirmState] = useState<{open: boolean; title: string; description: string; onConfirm: () => void}>({open: false, title: '', description: '', onConfirm: () => {}});
+
   const handleDeleteCompany = async (companyId: string) => {
-    if (!confirm('Supprimer cette entreprise du pipeline ?')) return;
-    try {
-      await fetch(`/api/companies?id=${companyId}`, { method: 'DELETE' });
-      await fetchPipeline();
-    } catch (error) {
-      console.error('Error deleting company:', error);
-    }
+    setConfirmState({
+      open: true,
+      title: 'Supprimer l\'entreprise',
+      description: 'Supprimer cette entreprise du pipeline ?',
+      onConfirm: async () => {
+        setConfirmState(prev => ({...prev, open: false}));
+        try {
+          await apiFetch(`/api/companies?id=${companyId}`, { method: 'DELETE' });
+          await fetchPipeline();
+        } catch (error) {
+          console.error('Error deleting company:', error);
+        }
+      },
+    });
+    return;
   };
 
 
@@ -354,6 +365,15 @@ export default function PipelineTab() {
           )}
         </DragOverlay>
       </DndContext>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState(prev => ({...prev, open}))}
+        title={confirmState.title}
+        description={confirmState.description}
+        onConfirm={confirmState.onConfirm}
+        variant="destructive"
+      />
 
       {/* Company Profile Dialog */}
       {selectedCompanyId && (

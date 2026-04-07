@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Entreprise non trouvée' }, { status: 404 });
     }
 
-    const result = await enrichCompany(id);
+    const result = await enrichCompany(id, authResult.workspaceId);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result: BatchEnrichResult = await batchEnrich(parsed.data.forceAll ?? false);
+    const result: BatchEnrichResult = await batchEnrich(parsed.data.forceAll ?? false, authResult.workspaceId);
 
     return NextResponse.json({
       total: result.total,

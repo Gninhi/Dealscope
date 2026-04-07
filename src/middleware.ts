@@ -16,6 +16,10 @@ export function middleware(request: NextRequest) {
   const isDev = process.env.NODE_ENV === 'development';
 
   // ── Content Security Policy ──────────────────────────────────
+  // NOTE: 'unsafe-inline' is required in both dev and production because
+  // Next.js injects inline scripts/styles at runtime for HMR, RSC payloads,
+  // and styled-jsx. Nonce-based CSP is possible but requires significant
+  // Next.js config changes (experimental.cspNonce) which is out of scope here.
   const scriptSrc = isDev
     ? "'self' 'unsafe-inline' 'unsafe-eval'"
     : "'self' 'unsafe-inline'";
@@ -26,7 +30,7 @@ export function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https: wss: http:",
+    "connect-src 'self' https: wss:",
     "frame-ancestors 'self' https://*.z.ai https://z.ai http://localhost:3000",
     "base-uri 'self'",
     "form-action 'self'",

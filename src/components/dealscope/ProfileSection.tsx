@@ -81,7 +81,7 @@ export default function ProfileSection() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const res = await fetch('/api/user/profile');
+      const res = await apiFetch('/api/user/profile');
       if (!res.ok) return;
       const data = await res.json();
       if (data.user) {

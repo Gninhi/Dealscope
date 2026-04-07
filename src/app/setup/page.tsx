@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { AuthLayout, AuthLogo, AuthFooter } from '@/components/auth/auth-layout';
 import { PasswordStrengthIndicator } from '@/components/auth/password-strength';
 import { ButtonSpinner, LoadingSpinner } from '@/components/auth/loading-spinner';
+import { apiFetch } from '@/lib/api-client';
 
 export default function SetupPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function SetupPage() {
 
   useEffect(() => {
     // Check if setup is needed
-    fetch('/api/auth/setup')
+    apiFetch('/api/auth/setup')
       .then((res) => res.json())
       .then((data) => {
         if (!data.isFirstSetup) {
@@ -59,9 +60,8 @@ export default function SetupPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/setup', {
+      const res = await apiFetch('/api/auth/setup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,

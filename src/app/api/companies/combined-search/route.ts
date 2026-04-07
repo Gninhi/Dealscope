@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    const filters = parseSearchFilters(new URL(request.url).searchParams);
+    const filters = parseSearchFilters(new URL(request.url).searchParams, true);
 
     if (!hasSearchParams(filters)) {
       return NextResponse.json({ error: 'Au moins un paramètre de recherche est requis' }, { status: 400 });

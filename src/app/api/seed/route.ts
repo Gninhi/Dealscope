@@ -43,7 +43,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Create user with STRONG demo password (change immediately after setup)
-    const demoPassword = process.env.SEED_DEMO_PASSWORD || 'Demo@2025!ChangeMe';
+    if (!process.env.SEED_DEMO_PASSWORD) {
+      return safeErrorResponse('SEED_DEMO_PASSWORD env var is required', 500);
+    }
+    const demoPassword = process.env.SEED_DEMO_PASSWORD;
     const hashedPassword = await hashPassword(demoPassword);
     await db.user.create({
       data: {

@@ -22,7 +22,7 @@ export const createCompanySchema = z.object({
   region: z.string().optional().default(''),
   latitude: z.number().optional().default(0),
   longitude: z.number().optional().default(0),
-  employeeCount: z.string().optional().default(''),
+  employeeCount: z.coerce.number().min(0).optional().default(0),
   revenue: z.number().optional().default(0),
   icpScore: z.number().min(0).max(100).optional().default(0),
   source: z.string().optional().default('api_gouv'),
@@ -30,13 +30,9 @@ export const createCompanySchema = z.object({
 });
 
 export const updateCompanySchema = z.object({
-  notes: z.string().optional(),
-  icpScore: z.number().min(0).max(100).optional(),
+  notes: z.string().max(50000).optional(),
   status: z.enum(VALID_STATUSES).optional(),
-  sector: z.string().optional(),
-  revenue: z.number().optional(),
-  employeeCount: z.string().optional(),
-  source: z.string().optional(),
+  icpScore: z.number().min(0).max(100).optional(),
 });
 
 // ALLOWED_COMPANY_UPDATE_FIELDS is now the single source of truth in
@@ -56,8 +52,6 @@ export const movePipelineSchema = z.object({
 export const scanSchema = z.object({
   query: z.string().optional().default(''),
   sector: z.string().optional(),
-  region: z.string().optional(),
-  employeeRange: z.string().optional(),
   icpProfileId: z.string().optional(),
   limit: z.number().int().min(1).max(50).optional().default(10),
 });

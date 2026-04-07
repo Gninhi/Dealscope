@@ -6,15 +6,6 @@ export const ALERT_TYPES = ['keyword', 'sector', 'company'] as const;
 
 export const newsSearchSchema = z.object({
   q: z.string().min(1, 'Requête requise'),
-  type: z.enum([
-    'all',
-    'ma',
-    'funding',
-    'leadership',
-    'financial',
-    'regulatory',
-    'expansion',
-  ]).optional().default('all'),
 });
 
 export const createAlertSchema = z.object({

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-guard';
-import { safeErrorResponse } from '@/lib/security';
+import { validateCsrf, safeErrorResponse } from '@/lib/security';
 import { db } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
+import { passwordSchema } from '@/lib/validators';
 
 /**
  * GET /api/user/profile
@@ -54,6 +55,10 @@ export async function PATCH(request: NextRequest) {
     const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) return authResult;
 
+    if (!validateCsrf(request)) {
+      return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+    }
+
     const body = await request.json();
 
     // Validation des champs autorisés
@@ -102,29 +107,12 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
-      if (body.newPassword.length < 8) {
+      // Validate new password using shared passwordSchema
+      try {
+        passwordSchema.parse(body.newPassword);
+      } catch (err: any) {
         return NextResponse.json(
-          { error: 'Le nouveau mot de passe doit contenir au moins 8 caractères' },
-          { status: 400 },
-        );
-      }
-
-      // Vérifier que le nouveau mot de passe a la complexité requise
-      if (!/[A-Z]/.test(body.newPassword)) {
-        return NextResponse.json(
-          { error: 'Le mot de passe doit contenir au moins une majuscule' },
-          { status: 400 },
-        );
-      }
-      if (!/[a-z]/.test(body.newPassword)) {
-        return NextResponse.json(
-          { error: 'Le mot de passe doit contenir au moins une minuscule' },
-          { status: 400 },
-        );
-      }
-      if (!/[0-9]/.test(body.newPassword)) {
-        return NextResponse.json(
-          { error: 'Le mot de passe doit contenir au moins un chiffre' },
+          { error: err.issues?.[0]?.message || 'Mot de passe invalide' },
           { status: 400 },
         );
       }

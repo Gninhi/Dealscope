@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { AuthLayout, AuthLogo, AuthFooter } from '@/components/auth/auth-layout';
 import { PasswordStrengthIndicator } from '@/components/auth/password-strength';
 import { ButtonSpinner } from '@/components/auth/loading-spinner';
+import { apiFetch } from '@/lib/api-client';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -38,9 +39,8 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await apiFetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email, password: formData.password, firstName: formData.firstName, lastName: formData.lastName }),
       });
 

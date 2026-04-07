@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         sector: sanitizeInput(parsed.data.sector || '', 100),
         nafCode: sanitizeInput(parsed.data.nafCode || '', 20),
         revenue: parsed.data.revenue != null ? Number(parsed.data.revenue) : null,
-        employeeCount: parsed.data.employeeCount ? parseInt(parsed.data.employeeCount, 10) || null : null,
+        employeeCount: parsed.data.employeeCount != null ? Number(parsed.data.employeeCount) : null,
         city: sanitizeInput(parsed.data.city || '', 200),
         postalCode: sanitizeInput(parsed.data.postalCode || '', 20),
         region: sanitizeInput(parsed.data.region || '', 200),

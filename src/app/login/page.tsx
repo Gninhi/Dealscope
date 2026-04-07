@@ -61,7 +61,7 @@ function LoginForm() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password" className="text-sm text-muted-foreground">Mot de passe</Label>
-              <button type="button" className="text-xs text-violet-400 hover:text-violet-300 transition-colors" disabled title="Bientôt disponible">Mot de passe oublié ?</button>
+              <button type="button" className="text-xs text-violet-400 hover:text-violet-300 transition-colors" onClick={() => alert('Fonctionnalité bientôt disponible. Contactez votre administrateur.')}>Mot de passe oublié ?</button>
             </div>
             <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="bg-background/50 border-white/10 focus:border-violet-500/50 focus:ring-violet-500/20 h-11" />
           </div>

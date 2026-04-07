@@ -13,13 +13,17 @@ export const BATCH_COOLDOWN_MS = 60_000; // 60 seconds
 let lastBatchEnrichTime = 0;
 
 // ── Core enrich logic ────────────────────────────────────────────
-export async function enrichCompany(id: string): Promise<{ success: boolean; error?: string }> {
+export async function enrichCompany(id: string, workspaceId?: string): Promise<{ success: boolean; error?: string }> {
   // Validate CUID format to prevent injection
   if (!isValidCuid(id)) {
     return { success: false, error: 'ID invalide' };
   }
 
-  const company = await db.targetCompany.findUnique({ where: { id } });
+  // Verify workspace ownership if workspaceId is provided
+  const whereClause = workspaceId
+    ? { id, workspaceId }
+    : { id };
+  const company = await db.targetCompany.findFirst({ where: whereClause });
   if (!company) {
     return { success: false, error: 'Entreprise non trouvée' };
   }
@@ -176,16 +180,20 @@ export interface BatchEnrichResult {
   message?: string;
 }
 
-export async function batchEnrich(forceAll: boolean): Promise<BatchEnrichResult> {
+export async function batchEnrich(forceAll: boolean, workspaceId?: string): Promise<BatchEnrichResult> {
   // Check cooldown
   const cooldown = checkBatchCooldown();
   if (!cooldown.allowed) {
     throw new Error(`Veuillez attendre ${cooldown.remainingSeconds} secondes avant un nouvel enrichissement batch`);
   }
 
+  // Build filter: workspace isolation + optional forceAll
+  const baseWhere: Record<string, unknown> = workspaceId ? { workspaceId } : {};
+  const whereClause = forceAll ? baseWhere : { ...baseWhere, isEnriched: false };
+
   // Récupérer les entreprises à enrichir
   const allCompanies = await db.targetCompany.findMany({
-    where: forceAll ? {} : { isEnriched: false },
+    where: whereClause,
     select: { id: true, siren: true },
     orderBy: { createdAt: 'desc' },
   });
@@ -204,7 +212,7 @@ export async function batchEnrich(forceAll: boolean): Promise<BatchEnrichResult>
 
   for (const comp of companies) {
     try {
-      const result = await enrichCompany(comp.id);
+      const result = await enrichCompany(comp.id, workspaceId);
       if (result.success) {
         results.enriched++;
       } else {

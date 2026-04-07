@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Loader2, Bot, User, Trash2, Sparkles, Brain, Copy, Check, MessageSquare, ArrowRight } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface Message {
   id: string;
@@ -31,7 +32,7 @@ export default function ChatTab() {
       const res = await fetch('/api/chat');
       if (!res.ok) return;
       const text = await res.text();
-      try { const data = JSON.parse(text); if (Array.isArray(data)) setMessages(data); } catch {}
+      try { const data = JSON.parse(text); if (data && Array.isArray(data.messages)) setMessages(data.messages); } catch {}
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -163,9 +164,19 @@ export default function ChatTab() {
     }
   };
 
+  const [confirmState, setConfirmState] = useState<{open: boolean; title: string; description: string; onConfirm: () => void}>({open: false, title: '', description: '', onConfirm: () => {}});
+
   const handleClear = async () => {
-    if (!confirm('Effacer toute la conversation ?')) return;
-    setMessages([]);
+    setConfirmState({
+      open: true,
+      title: 'Effacer la conversation',
+      description: 'Effacer toute la conversation ?',
+      onConfirm: () => {
+        setConfirmState(prev => ({...prev, open: false}));
+        setMessages([]);
+      },
+    });
+    return;
   };
 
   const isEmpty = messages.length === 0 && !isLoading;
@@ -324,6 +335,14 @@ export default function ChatTab() {
           </button>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState(prev => ({...prev, open}))}
+        title={confirmState.title}
+        description={confirmState.description}
+        onConfirm={confirmState.onConfirm}
+        variant="destructive"
+      />
     </div>
   );
 }

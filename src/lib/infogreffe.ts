@@ -68,13 +68,13 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
 
   // Filtres de localisation
   if (filters.codePostal) {
-    conditions.push(`code_postal LIKE "${filters.codePostal}%"`);
+    conditions.push(`code_postal LIKE "${escapeSqlInput(filters.codePostal)}%"`);
   }
   if (filters.departement) {
-    conditions.push(`departement="${filters.departement}"`);
+    conditions.push(`departement="${escapeSqlInput(filters.departement)}"`);
   }
   if (filters.region) {
-    conditions.push(`region="${filters.region}"`);
+    conditions.push(`region="${escapeSqlInput(filters.region)}"`);
   }
   if (filters.commune) {
     conditions.push(`ville ILIKE "%${escapeSqlInput(filters.commune)}%"`);
@@ -82,7 +82,7 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
 
   // Filtres secteur / juridique
   if (filters.codeNaf) {
-    conditions.push(`code_ape LIKE "${filters.codeNaf}%"`);
+    conditions.push(`code_ape LIKE "${escapeSqlInput(filters.codeNaf)}%"`);
   }
   if (filters.natureJuridique) {
     conditions.push(`forme_juridique ILIKE "%${escapeSqlInput(filters.natureJuridique)}%"`);
@@ -92,7 +92,7 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
   if (filters.statutEntreprise) {
     const statutValue = mapStatutFilter(filters.statutEntreprise);
     if (statutValue) {
-      conditions.push(`statut="${statutValue}"`);
+      conditions.push(`statut="${escapeSqlInput(statutValue)}"`);
     }
   }
 
@@ -106,10 +106,10 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
 
   // NOUVEAU: Filtre par date d'immatriculation
   if (filters.dateImmatBefore) {
-    conditions.push(`date_immatriculation < "${filters.dateImmatBefore}"`);
+    conditions.push(`date_immatriculation < "${escapeSqlInput(filters.dateImmatBefore)}"`);
   }
   if (filters.dateImmatAfter) {
-    conditions.push(`date_immatriculation > "${filters.dateImmatAfter}"`);
+    conditions.push(`date_immatriculation > "${escapeSqlInput(filters.dateImmatAfter)}"`);
   }
 
   // NOUVEAU: Filtre par CA min/max

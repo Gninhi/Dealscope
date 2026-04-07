@@ -6,6 +6,8 @@ import {
   Database, Sparkles, Building2
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
+import { apiFetch } from '@/lib/api-client';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface ICPProfile {
   id: string;
@@ -31,7 +33,7 @@ export default function SettingsTab() {
 
   const fetchProfiles = async () => {
     try {
-      const res = await fetch('/api/icp-profiles');
+      const res = await apiFetch('/api/icp-profiles');
       if (!res.ok) return;
       const text = await res.text();
       try { const data = JSON.parse(text); if (Array.isArray(data)) setIcpProfiles(data); } catch (error) { console.error('[SettingsTab] Failed to parse ICP profiles:', error); }
@@ -45,7 +47,7 @@ export default function SettingsTab() {
   useEffect(() => {
     fetchProfiles();
     // Fetch workspace info
-    fetch('/api/companies')
+    apiFetch('/api/companies')
       .then(res => { if (!res.ok) return ''; return res.text(); })
       .then(text => { if (!text) return; try { const data = JSON.parse(text); setWorkspaceInfo({ companyCount: Array.isArray(data) ? data.length : 0 }); } catch (error) { console.error('[SettingsTab] Failed to parse workspace info:', error); } })
       .catch(() => {});
@@ -55,9 +57,8 @@ export default function SettingsTab() {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch('/api/icp-profiles', {
+      const res = await apiFetch('/api/icp-profiles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newName,
           criteria: newCriteria || '{}',
@@ -78,21 +79,30 @@ export default function SettingsTab() {
     }
   };
 
+  const [confirmState, setConfirmState] = useState<{open: boolean; title: string; description: string; onConfirm: () => void}>({open: false, title: '', description: '', onConfirm: () => {}});
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce profil ICP ?')) return;
-    try {
-      await fetch(`/api/icp-profiles?id=${id}`, { method: 'DELETE' });
-      await fetchProfiles();
-    } catch (error) {
-      console.error('Error deleting profile:', error);
-    }
+    setConfirmState({
+      open: true,
+      title: 'Supprimer le profil ICP',
+      description: 'Supprimer ce profil ICP ?',
+      onConfirm: async () => {
+        setConfirmState(prev => ({...prev, open: false}));
+        try {
+          await apiFetch(`/api/icp-profiles?id=${id}`, { method: 'DELETE' });
+          await fetchProfiles();
+        } catch (error) {
+          console.error('Error deleting profile:', error);
+        }
+      },
+    });
+    return;
   };
 
   const handleToggleActive = async (profile: ICPProfile) => {
     try {
-      await fetch('/api/icp-profiles', {
+      await apiFetch('/api/icp-profiles', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: profile.id, isActive: !profile.isActive }),
       });
       await fetchProfiles();
@@ -102,19 +112,27 @@ export default function SettingsTab() {
   };
 
   const handleSeed = async () => {
-    if (!confirm('Cela va réinitialiser toutes les données et créer des données de démonstration. Continuer ?')) return;
-    setSeeding(true);
-    setSeedResult(null);
-    try {
-      const res = await fetch('/api/seed', { method: 'POST' });
-      const data = await res.json();
-      setSeedResult(data);
-      await fetchProfiles();
-    } catch (error) {
-      console.error('Seed error:', error);
-    } finally {
-      setSeeding(false);
-    }
+    setConfirmState({
+      open: true,
+      title: 'Réinitialiser les données',
+      description: 'Cela va réinitialiser toutes les données et créer des données de démonstration. Continuer ?',
+      onConfirm: async () => {
+        setConfirmState(prev => ({...prev, open: false}));
+        setSeeding(true);
+        setSeedResult(null);
+        try {
+          const res = await apiFetch('/api/seed', { method: 'POST' });
+          const data = await res.json();
+          setSeedResult(data);
+          await fetchProfiles();
+        } catch (error) {
+          console.error('Seed error:', error);
+        } finally {
+          setSeeding(false);
+        }
+      },
+    });
+    return;
   };
 
   return (
@@ -290,6 +308,14 @@ export default function SettingsTab() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState(prev => ({...prev, open}))}
+        title={confirmState.title}
+        description={confirmState.description}
+        onConfirm={confirmState.onConfirm}
+        variant="destructive"
+      />
     </div>
   );
 }

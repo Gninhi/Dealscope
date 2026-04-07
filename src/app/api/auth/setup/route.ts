@@ -13,19 +13,11 @@ const setupSchema = z.object({
   companyName: z.string().min(1, "Le nom de l'entreprise est requis").max(200).trim(),
 });
 
-// GET /api/auth/setup — Check if setup is needed
-// Note: This endpoint reveals whether users exist. In production, consider
-// removing this or requiring authentication.
+// GET /api/auth/setup — Always returns isFirstSetup: false to avoid
+// information disclosure about whether users exist. The setup page
+// already redirects after setup is complete.
 export async function GET() {
-  try {
-    const userCount = await db.user.count();
-    const isFirstSetup = userCount === 0;
-
-    return NextResponse.json({ isFirstSetup });
-  } catch {
-    // Don't leak error details about database state
-    return NextResponse.json({ isFirstSetup: false }, { status: 500 });
-  }
+  return NextResponse.json({ isFirstSetup: false });
 }
 
 // POST /api/auth/setup — Create first admin user (only when no users exist)
