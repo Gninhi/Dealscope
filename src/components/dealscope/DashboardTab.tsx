@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Building2, Users, TrendingUp, Target, Search, Kanban, Radar, Sparkles, Brain, ArrowRight, Lightbulb, Zap, BarChart3 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { formatCurrency, formatNumber, getStageLabel, timeAgo, getStageDotColor } from '@/lib/utils';
-import { PIPELINE_STAGES } from '@/lib/types';
+import { PIPELINE_STAGES } from '@/constants';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const stageColors = ['#6B7280', '#3B82F6', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#EF4444'];

@@ -1,93 +1,71 @@
+// ─── API Auth Guard ─────────────────────────────────────────────
+// Centralized authentication helpers for API routes.
+// Uses NextAuth session to verify requests.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { isBodyTooLarge, safeErrorResponse, getClientIp } from '@/lib/security';
 
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-  role: string;
-  workspaceId: string;
+// NextAuth v5 augmentations — our JWT stores role/workspaceId/workspaceSlug
+type SessionUser = {
+  id?: string;
+  email?: string;
+  name?: string;
+  role?: string;
+  workspaceId?: string;
   workspaceSlug?: string;
-}
+};
+
+type AuthResult =
+  | NextResponse
+  | { id: string; email: string; role: string; workspaceId: string };
 
 /**
- * Require authentication for an API route.
- * Returns the authenticated user info or a 401 response.
- * Also checks request body size for mutating methods.
+ * Require authenticated session. Returns NextResponse on error,
+ * or the authenticated user payload on success.
  */
-export async function requireAuth(
-  request: NextRequest,
-): Promise<AuthenticatedUser | NextResponse> {
-  // Check body size for mutating requests
-  if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
-    if (isBodyTooLarge(request)) {
-      return NextResponse.json(
-        { error: 'Requête trop volumineuse (max 1 Mo)' },
-        { status: 413 },
-      );
-    }
-  }
-
+export async function requireAuth(request: NextRequest): Promise<AuthResult> {
   try {
     const session = await auth();
+    const user = session?.user as SessionUser | undefined;
 
-    if (!session?.user) {
+    if (!user?.id) {
       return NextResponse.json(
         { error: 'Non authentifié' },
         { status: 401 },
       );
     }
 
-    const user = session.user as unknown as AuthenticatedUser;
-
-    if (!user.id || !user.email || !user.workspaceId) {
-      return NextResponse.json(
-        { error: 'Session invalide' },
-        { status: 401 },
-      );
-    }
-
-    return user;
+    return {
+      id: user.id,
+      email: user.email ?? '',
+      role: user.role ?? 'member',
+      workspaceId: user.workspaceId ?? '',
+    };
   } catch {
     return NextResponse.json(
-      { error: "Erreur d'authentification" },
+      { error: 'Erreur d\'authentification' },
       { status: 401 },
     );
   }
 }
 
 /**
- * Require admin role for an API route.
- * Returns the authenticated user info or a 401/403 response.
+ * Require admin role. Returns NextResponse on error (401 or 403),
+ * or the authenticated admin payload on success.
  */
-export async function requireAdmin(
-  request: NextRequest,
-): Promise<AuthenticatedUser | NextResponse> {
-  // Check body size for mutating requests
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
-    if (isBodyTooLarge(request)) {
-      return NextResponse.json(
-        { error: 'Requête trop volumineuse (max 1 Mo)' },
-        { status: 413 },
-      );
-    }
+export async function requireAdmin(request: NextRequest): Promise<AuthResult> {
+  const result = await requireAuth(request);
+
+  if (result instanceof NextResponse) {
+    return result;
   }
 
-  const authResult = await requireAuth(request);
-
-  if (authResult instanceof NextResponse) {
-    return authResult;
-  }
-
-  if (authResult.role !== 'admin') {
+  if (result.role !== 'admin') {
     return NextResponse.json(
-      { error: 'Accès refusé. Droits administrateur requis.' },
+      { error: 'Accès réservé aux administrateurs' },
       { status: 403 },
     );
   }
 
-  return authResult;
+  return result;
 }
-
-// Re-export convenience functions
-export { getClientIp, safeErrorResponse };

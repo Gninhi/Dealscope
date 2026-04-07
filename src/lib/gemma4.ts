@@ -3,6 +3,9 @@
  *
  * Wraps the z-ai-web-dev-sdk with specialized prompts for French M&A operations.
  * All system prompts are in French, tailored for M&A analysts working on the French market.
+ *
+ * Architecture: Singleton pattern ensures a single ZAI client instance per server process,
+ * avoiding connection overhead and enabling efficient resource management.
  */
 
 import ZAI from 'z-ai-web-dev-sdk';
@@ -148,7 +151,7 @@ export class Gemma4Service {
   /**
    * Execute a chat completion with the ZAI SDK.
    */
-  private async complete(
+  async complete(
     messages: ChatMessage[],
     options: ChatOptions = {},
   ): Promise<Gemma4Response> {
@@ -214,26 +217,23 @@ export class Gemma4Service {
    */
   private parseJSONResponse<T>(content: string, fallback: T): T {
     try {
-      // Try direct JSON parse
       return JSON.parse(content) as T;
     } catch {
-      // Try extracting JSON from markdown code blocks
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch?.[1]) {
         try {
           return JSON.parse(jsonMatch[1].trim()) as T;
         } catch {
-          // Fall through to fallback
+          // Fall through
         }
       }
 
-      // Try finding first { ... } or [ ... ] block
       const braceMatch = content.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
       if (braceMatch?.[1]) {
         try {
           return JSON.parse(braceMatch[1]) as T;
         } catch {
-          // Fall through to fallback
+          // Fall through
         }
       }
 
@@ -260,7 +260,6 @@ export class Gemma4Service {
 
   /**
    * Analyze a company for M&A relevance.
-   * Returns a structured analysis with strengths, risks, opportunities, and recommendations.
    */
   async analyzeCompany(companyData: CompanyData): Promise<Gemma4Response> {
     const systemPrompt = `Tu es GEMMA_4, un moteur d'analyse IA spécialisé dans les fusions et acquisitions (M&A) en France.
@@ -286,10 +285,7 @@ Fournis une analyse complète et structurée au format JSON.`;
 
     return this.complete(
       [{ role: 'user', content: userMessage }],
-      {
-        systemPrompt,
-        temperature: 0.4,
-      },
+      { systemPrompt, temperature: 0.4 },
     );
   }
 
@@ -302,14 +298,14 @@ Fournis une analyse complète et structurée au format JSON.`;
 Tu convertis des descriptions en langage naturel en critères de recherche structurés pour la base de données française des entreprises (SIRENE, INPI, etc.).
 
 Tu dois retourner un objet JSON avec les champs suivants:
-- "query": string — Requête de recherche principale (nom d'entreprise ou mots-clés)
+- "query": string — Requête de recherche principale
 - "sector": string — Secteur d'activité (NAF/APE code ou nom de secteur)
 - "region": string — Région ou département français
-- "employeeRange": string — Tranche d'effectif (ex: "20-50", "50-250")
-- "revenueRange": string — Fourchette de chiffre d'affaires (ex: "1M-10M", ">5M")
-- "legalForms": string[] — Formes juridiques pertinentes (SAS, SARL, SA, etc.)
+- "employeeRange": string — Tranche d'effectif
+- "revenueRange": string — Fourchette de chiffre d'affaires
+- "legalForms": string[] — Formes juridiques pertinentes
 - "nafCodes": string[] — Codes NAF/APE pertinents
-- "keywords": string[] — Mots-clés additionnels pour la recherche
+- "keywords": string[] — Mots-clés additionnels
 
 Réponds UNIQUEMENT en JSON valide, sans texte additionnel. Tout en français.`;
 
@@ -321,10 +317,7 @@ Retourne les critères au format JSON.`;
 
     return this.complete(
       [{ role: 'user', content: userMessage }],
-      {
-        systemPrompt,
-        temperature: 0.3,
-      },
+      { systemPrompt, temperature: 0.3 },
     );
   }
 
@@ -358,10 +351,7 @@ Fournis un résumé analytique du pipeline avec:
 
     return this.complete(
       [{ role: 'user', content: userMessage }],
-      {
-        systemPrompt,
-        temperature: 0.5,
-      },
+      { systemPrompt, temperature: 0.5 },
     );
   }
 
@@ -377,20 +367,18 @@ Fournis un résumé analytique du pipeline avec:
 Tu compares une entreprise à un profil ICP (Ideal Customer Profile) et calcules un score de pertinence de 0 à 100.
 
 Tu dois analyser les dimensions suivantes:
-1. **Secteur** — Correspondance du secteur d'activité avec les critères ICP
+1. **Secteur** — Correspondance du secteur d'activité
 2. **Taille** — Adéquation de la taille de l'entreprise (effectif)
 3. **Chiffre d'affaires** — Alignement du CA avec les attentes
 4. **Localisation** — Pertinence géographique
-5. **Maturité** — Adéquation de la maturité de l'entreprise (date de création, stade de développement)
-
-Pour chaque dimension, tu indiques: match (booléen), weight (poids de 1-5), detail (explication).
+5. **Maturité** — Adéquation de la maturité de l'entreprise
 
 Tu retournes un objet JSON avec:
 - "score": number (0-100)
 - "breakdown": { sector: {match, weight, detail}, size: {match, weight, detail}, revenue: {match, weight, detail}, location: {match, weight, detail}, maturity: {match, weight, detail} }
-- "summary": string — Résumé de l'évaluation
-- "strengths": string[] — Points forts
-- "weaknesses": string[] — Points faibles
+- "summary": string
+- "strengths": string[]
+- "weaknesses": string[]
 
 Réponds UNIQUEMENT en JSON valide.`;
 
@@ -409,11 +397,41 @@ Fournis le score ICP au format JSON.`;
 
     return this.complete(
       [{ role: 'user', content: userMessage }],
-      {
-        systemPrompt,
-        temperature: 0.3,
-      },
+      { systemPrompt, temperature: 0.3 },
     );
+  }
+
+  /**
+   * Score a company as an M&A target using AI (0-100).
+   * Lightweight scoring used by the scan pipeline.
+   */
+  async scoreCompanyMA(
+    companyName: string,
+    sector: string,
+    category: string,
+    legalForm: string,
+  ): Promise<number | null> {
+    try {
+      const response = await this.complete(
+        [{
+          role: 'user',
+          content: `Évalue cette entreprise comme cible M&A (score 0-100) : ${companyName}, Secteur: ${sector}, Catégorie: ${category}, Forme juridique: ${legalForm}. Réponds UNIQUEMENT avec un nombre entre 0 et 100.`,
+        }],
+        {
+          systemPrompt: 'Tu es un assistant de scoring M&A. Évalue les entreprises de 0 à 100 selon leur attractivité comme cible d\'acquisition. Réponds UNIQUEMENT avec un nombre entre 0 et 100.',
+          temperature: 0.2,
+        },
+      );
+
+      const parsed = parseInt(response.content.trim(), 10);
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      console.error('[Gemma4Service] AI scoring failed:', error);
+      return null;
+    }
   }
 
   /**
@@ -432,18 +450,18 @@ Fournis le score ICP au format JSON.`;
   ): Promise<Gemma4Response> {
     const systemPrompt = `Tu es GEMMA_4, un assistant IA spécialisé dans la rédaction d'emails de prospection M&A en France.
 
-Tu rédiges des emails professionnels, personnalisés et convaincants pour approcher des dirigeants d'entreprises cibles. Tes emails sont:
-- Concis (200-300 mots maximum pour le corps)
-- Personnalisés avec des données réelles de l'entreprise
+Tu rédiges des emails professionnels, personnalisés et convaincants. Tes emails sont:
+- Concis (200-300 mots maximum)
+- Personnalisés avec des données réelles
 - Professionnels mais chaleureux
-- Orientés vers un objectif clair (premier échange, rendez-vous, etc.)
-- Conformes aux bonnes pratiques de prospection B2B en France
+- Orientés vers un objectif clair
+- Conformes aux bonnes pratiques B2B en France
 
 Tu retournes un objet JSON avec:
-- "subject": string — Objet de l'email (max 80 caractères)
-- "body": string — Corps de l'email (texte brut ou HTML léger)
-- "tone": string — Ton utilisé (professionnel, chaleureux, direct, etc.)
-- "keyPoints": string[] — Points clés abordés dans l'email
+- "subject": string (max 80 caractères)
+- "body": string (corps de l'email)
+- "tone": string
+- "keyPoints": string[]
 
 Réponds UNIQUEMENT en JSON valide. Tout en français.`;
 
@@ -459,24 +477,17 @@ Réponds UNIQUEMENT en JSON valide. Tout en français.`;
 - Ville: ${companyData.city || 'Non renseigné'}
 - Effectif: ${companyData.employeeCount ?? 'Non renseigné'}
 - CA: ${companyData.revenue ? `${companyData.revenue}€` : 'Non renseigné'}
-- Date de création: ${companyData.dateImmatriculation || 'Non renseignée'}
-- Notes: ${companyData.notes || 'Aucune'}
 
 **Contexte:**
 - Expéditeur: ${context.senderName || 'Non renseigné'} (${context.senderCompany || 'Non renseigné'})
-- Objectif: ${context.objective || 'Prendre contact et explorer un échange'}
-- Ton souhaité: ${context.tone || 'Professionnel et chaleureux'}
-- Interaction précédente: ${context.previousInteraction || 'Aucune'}
-- Points à mettre en avant:\n  - ${highlights}
+- Objectif: ${context.objective || 'Prendre contact'}
+- Ton: ${context.tone || 'Professionnel et chaleureux'}
 
 Rédige l'email au format JSON.`;
 
     return this.complete(
       [{ role: 'user', content: userMessage }],
-      {
-        systemPrompt,
-        temperature: 0.7,
-      },
+      { systemPrompt, temperature: 0.7 },
     );
   }
 
@@ -490,26 +501,20 @@ Rédige l'email au format JSON.`;
 
 Tu aides les analystes M&A à:
 1. Analyser des entreprises cibles potentielles
-2. Évaluer la pertinence des cibles par rapport aux profils ICP (Ideal Customer Profile)
-3. Identifier des signaux d'opportunité (croissance, changement de direction, financement, etc.)
+2. Évaluer la pertinence des cibles par rapport aux profils ICP
+3. Identifier des signaux d'opportunité
 4. Fournir des insights sur les secteurs d'activité français
-5. Aider à la qualification de cibles et à la préparation d'approches
-6. Générer des critères de recherche structurés à partir de descriptions
+5. Aider à la qualification de cibles
+6. Générer des critères de recherche structurés
 7. Rédiger des emails de prospection personnalisés
 
-Tu parles français et tu es concis et professionnel. Quand on te donne des données financières, analyse-les avec rigueur. Si on te demande de chercher des entreprises, suggère des critères de recherche pertinents.
-
-Quand tu utilises des données structurées, fournis-les en JSON quand c'est pertinent.
-
+Tu parles français et tu es concis et professionnel. Quand on te donne des données financières, analyse-les avec rigueur.
 Réponds toujours en français.`;
   }
 }
 
 // ─── Convenience Export ─────────────────────────────────────────────────────
 
-/**
- * Get a ready-to-use Gemma4Service instance.
- */
 export function getGemma4(): Gemma4Service {
   return Gemma4Service.getInstance();
 }

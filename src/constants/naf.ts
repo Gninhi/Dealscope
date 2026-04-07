@@ -1,0 +1,25 @@
+// ─── NAF Sections ─────────────────────────────────────────────────
+
+export const NAF_SECTIONS = [
+  { code: 'A', label: 'Agriculture, sylviculture et pêche' },
+  { code: 'B', label: 'Industries extractives' },
+  { code: 'C', label: 'Industrie manufacturière' },
+  { code: 'D', label: 'Production et distribution électricité, gaz, vapeur, air conditionné' },
+  { code: 'E', label: 'Production, distribution eau, assainissement, gestion déchets' },
+  { code: 'F', label: 'Construction' },
+  { code: 'G', label: 'Commerce, réparation automobiles et motocycles' },
+  { code: 'H', label: 'Transports et entreposage' },
+  { code: 'I', label: 'Hébergement et restauration' },
+  { code: 'J', label: 'Information et communication' },
+  { code: 'K', label: 'Activités financières et assurance' },
+  { code: 'L', label: 'Activités immobilières' },
+  { code: 'M', label: 'Activités spécialisées, scientifiques et techniques' },
+  { code: 'N', label: 'Activités de services administratifs et de soutien' },
+  { code: 'O', label: 'Administration publique' },
+  { code: 'P', label: 'Enseignement' },
+  { code: 'Q', label: 'Santé humaine et action sociale' },
+  { code: 'R', label: 'Arts, spectacles et activités récréatives' },
+  { code: 'S', label: 'Autres activités de services' },
+  { code: 'T', label: 'Activités des ménages en tant qu\'employeurs' },
+  { code: 'U', label: 'Activités extra-territoriales' },
+] as const;

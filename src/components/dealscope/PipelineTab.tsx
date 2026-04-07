@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { getStageLabel, getStageColor, getStageDotColor, formatCurrency, formatNumber, timeAgo } from '@/lib/utils';
-import { PIPELINE_STAGES } from '@/lib/types';
+import { PIPELINE_STAGES } from '@/constants';
 import type { CompanyWithRelations } from '@/lib/types';
 import CompanyProfileDialog from './CompanyProfileDialog';
 import {

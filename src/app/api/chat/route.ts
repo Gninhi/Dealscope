@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { chatMessageSchema } from '@/lib/validators';
+import { chatMessageSchema } from '@/validators';
 import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import { getGemma4 } from '@/lib/gemma4';
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { message, model } = parsed.data;
+    const { message } = parsed.data;
 
     const workspaceId = authResult.workspaceId;
 
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ content, model: result.model, suggestedPrompts: model === 'gemma4' ? SUGGESTED_PROMPTS : undefined })}\n\n`,
+              `data: ${JSON.stringify({ content, model: result.model, suggestedPrompts: SUGGESTED_PROMPTS })}\n\n`,
             ),
           );
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));

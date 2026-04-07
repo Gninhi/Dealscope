@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { movePipelineSchema } from '@/lib/validators';
+import { movePipelineSchema } from '@/validators';
 import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse } from '@/lib/security';
 
 // GET /api/pipeline
@@ -73,7 +73,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { companyId, newStage, notes } = parsed.data;
+    const { companyId, stage, notes } = parsed.data;
 
     // Verify workspace ownership before moving company in pipeline
     const company = await db.targetCompany.findFirst({
@@ -86,7 +86,7 @@ export async function PUT(request: NextRequest) {
     const pipelineStage = await db.pipelineStage.create({
       data: {
         companyId,
-        stage: newStage,
+        stage: stage,
         notes: notes || '',
         movedAt: new Date(),
       },
@@ -94,7 +94,7 @@ export async function PUT(request: NextRequest) {
 
     await db.targetCompany.update({
       where: { id: companyId },
-      data: { status: newStage },
+      data: { status: stage },
     });
 
     return NextResponse.json(pipelineStage);

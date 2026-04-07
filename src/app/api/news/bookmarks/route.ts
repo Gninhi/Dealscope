@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { createBookmarkSchema, updateBookmarkSchema } from '@/lib/validators';
+import { createBookmarkSchema, updateBookmarkSchema } from '@/validators';
 import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 
 // GET /api/news/bookmarks

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { createCompanySchema, patchCompanySchema, ALLOWED_COMPANY_PATCH_FIELDS } from '@/lib/validators';
+import { createCompanySchema } from '@/validators';
+import { patchCompanySchema, ALLOWED_COMPANY_PATCH_FIELDS } from '@/lib/validators';
 import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, isValidId, sanitizeInput } from '@/lib/security';
 
 // GET /api/companies - list all companies with relations (paginated)

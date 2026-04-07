@@ -12,7 +12,7 @@ import { formatCurrency, formatNumber, formatDate, getStageLabel, getStageColor,
 import {
   REGIONS, NAF_SECTIONS, CATEGORIES_ENTREPRISE, FORMES_JURIDIQUES,
   TRANCHES_CA, STATUTS_ENTREPRISE, SORT_OPTIONS
-} from '@/lib/types';
+} from '@/constants';
 import type { CombinedSearchResult } from '@/lib/types';
 import CompanyProfileDialog from './CompanyProfileDialog';
 

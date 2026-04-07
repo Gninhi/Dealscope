@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { createIcpProfileSchema, updateIcpProfileSchema } from '@/lib/validators';
+import { z } from 'zod';
+
+const createIcpProfileSchema = z.object({
+  name: z.string().min(1, 'Nom du profil requis').max(100),
+  criteria: z.record(z.string(), z.unknown()).optional().default({}),
+  weights: z.record(z.string(), z.unknown()).optional().default({}),
+});
+
+const updateIcpProfileSchema = z.object({
+  id: z.string().min(1, 'ID du profil requis'),
+  name: z.string().min(1, 'Nom du profil requis').max(100).optional(),
+  criteria: z.record(z.string(), z.unknown()).optional(),
+  weights: z.record(z.string(), z.unknown()).optional(),
+  isActive: z.boolean().optional(),
+});
 import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, isValidId } from '@/lib/security';
 
 // GET /api/icp-profiles

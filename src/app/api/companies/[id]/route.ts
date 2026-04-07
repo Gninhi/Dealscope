@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { updateCompanySchema, ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
+import { updateCompanySchema } from '@/validators';
+import { ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
 import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 
 // GET /api/companies/[id]

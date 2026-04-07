@@ -133,9 +133,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
         token.email = user.email;
-        token.role = user.role;
-        token.workspaceId = user.workspaceId;
-        token.workspaceSlug = user.workspaceSlug;
+        token.role = (user as Record<string, unknown>).role as string;
+        token.workspaceId = (user as Record<string, unknown>).workspaceId as string;
+        token.workspaceSlug = (user as Record<string, unknown>).workspaceSlug as string;
         token.iat = Math.floor(Date.now() / 1000);
       }
       return token;
@@ -143,9 +143,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.workspaceId = token.workspaceId as string;
-        session.user.workspaceSlug = token.workspaceSlug as string;
+        // NextAuth User type doesn't include our custom fields — use cast
+        (session.user as unknown as Record<string, unknown>).role = token.role;
+        (session.user as unknown as Record<string, unknown>).workspaceId = token.workspaceId;
+        (session.user as unknown as Record<string, unknown>).workspaceSlug = token.workspaceSlug;
       }
       return session;
     },

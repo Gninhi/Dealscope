@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { z } from 'zod';
 import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse } from '@/lib/security';
-import { ensureWorkspace } from '@/lib/workspace';
+import { getWorkspace } from '@/lib/workspace';
 import { passwordSchema } from '@/lib/validators';
 
 const registerSchema = z.object({
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { user } = await db.$transaction(async (tx) => {
-      const workspace = await ensureWorkspace();
+      const workspace = await getWorkspace();
 
       // Hash password and create user
       const hashedPassword = await hashPassword(password);

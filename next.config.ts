@@ -22,11 +22,15 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // CORS — restrict origins for API routes
+          { key: 'Access-Control-Allow-Origin', value: '' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,PATCH,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type,Authorization,X-CSRF-Token' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
         ],
       },
     ];
   },
-  // Autorise les origines de dev (Z.ai, localhost, etc.)
   allowedDevOrigins: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
-import { newsSummarySchema } from '@/lib/validators';
+import { newsSummarySchema } from '@/validators';
 import { getGemma4 } from '@/lib/gemma4';
 
 // POST /api/news/summary
