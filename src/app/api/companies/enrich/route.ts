@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, isValidId } from '@/lib/security';
 import { enrichCompany, batchEnrich, type BatchEnrichResult } from '@/lib/services/enrich.service';
 import { batchEnrichSchema } from '@/validators';
 
@@ -9,6 +9,12 @@ import { batchEnrichSchema } from '@/validators';
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
+
+  // Rate limit enrichment (hits external APIs)
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 10, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
 
   try {
     const { searchParams } = new URL(request.url);
@@ -47,6 +53,12 @@ export async function POST(request: NextRequest) {
 
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  // Rate limit batch enrichment
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 5, 60 * 1000)) {
+    return rateLimitedResponse();
   }
 
   try {

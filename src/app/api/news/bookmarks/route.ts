@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { createBookmarkSchema, updateBookmarkSchema } from '@/validators';
-import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, isValidId, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 
 // GET /api/news/bookmarks
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
+
+  // Rate limit reads
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 60, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
 
   try {
     const workspaceId = authResult.workspaceId;
@@ -32,6 +38,12 @@ export async function POST(request: NextRequest) {
   // CSRF protection
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return rateLimitedResponse();
   }
 
   try {
@@ -69,7 +81,7 @@ export async function POST(request: NextRequest) {
       data: {
         workspaceId,
         articleId,
-        notes: notes || '',
+        notes: sanitizeInput(notes || '', 500),
       },
       include: { article: true },
     });
@@ -89,6 +101,12 @@ export async function DELETE(request: NextRequest) {
   // CSRF protection
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
   }
 
   try {
@@ -121,6 +139,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const body = await request.json();
     const parsed = updateBookmarkSchema.safeParse(body);
@@ -144,7 +168,7 @@ export async function PATCH(request: NextRequest) {
 
     const bookmark = await db.newsBookmark.update({
       where: { id },
-      data: { notes: notes ?? undefined },
+      data: { notes: notes ? sanitizeInput(notes, 500) : undefined },
       include: { article: true },
     });
 

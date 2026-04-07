@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { createAlertSchema, updateAlertSchema as patchAlertSchema } from '@/validators';
-import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, isValidId, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 
 // GET /api/news/alerts
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
+
+  // Rate limit reads
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 60, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
 
   try {
     const workspaceId = authResult.workspaceId;
@@ -33,6 +39,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const body = await request.json();
     const parsed = createAlertSchema.safeParse(body);
@@ -51,10 +63,10 @@ export async function POST(request: NextRequest) {
     const alert = await db.newsAlert.create({
       data: {
         workspaceId,
-        name,
+        name: sanitizeInput(name, 100),
         type: type || 'keyword',
         keywords: JSON.stringify(keywords || []),
-        sector: sector || '',
+        sector: sanitizeInput(sector || '', 100),
         companyId: companyId || null,
       },
     });
@@ -74,6 +86,12 @@ export async function DELETE(request: NextRequest) {
   // CSRF protection
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
   }
 
   try {
@@ -104,6 +122,12 @@ export async function PATCH(request: NextRequest) {
   // CSRF protection
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return rateLimitedResponse();
   }
 
   try {

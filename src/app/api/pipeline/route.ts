@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { movePipelineSchema } from '@/validators';
-import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 
 // GET /api/pipeline
 export async function GET(request: NextRequest) {
@@ -62,6 +62,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const body = await request.json();
     const parsed = movePipelineSchema.safeParse(body);
@@ -87,7 +93,7 @@ export async function PUT(request: NextRequest) {
       data: {
         companyId,
         stage: stage,
-        notes: notes || '',
+        notes: sanitizeInput(notes || '', 5000),
         movedAt: new Date(),
       },
     });

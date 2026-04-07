@@ -8,8 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { AuthLayout, AuthLogo, AuthFooter } from '@/components/auth/auth-layout';
-import { ButtonSpinner } from '@/components/auth/loading-spinner';
-import { LoadingSpinner } from '@/components/auth/loading-spinner';
+import { ButtonSpinner, LoadingSpinner } from '@/components/auth/loading-spinner';
 
 function LoginForm() {
   const router = useRouter();

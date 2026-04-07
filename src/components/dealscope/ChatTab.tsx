@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Loader2, Bot, User, Trash2, Sparkles, Brain, Copy, Check, MessageSquare, ArrowRight } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { apiFetch } from '@/lib/api-client';
 
 interface Message {
   id: string;
@@ -29,7 +30,7 @@ export default function ChatTab() {
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch('/api/chat');
+      const res = await apiFetch('/api/chat');
       if (!res.ok) return;
       const text = await res.text();
       try { const data = JSON.parse(text); if (data && Array.isArray(data.messages)) setMessages(data.messages); } catch {}
@@ -84,9 +85,8 @@ export default function ChatTab() {
     setMessages(prev => [...prev, optimisticUser]);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await apiFetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage }),
       });
 

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/api-guard';
-import { validateCsrf, safeErrorResponse } from '@/lib/security';
 import { db } from '@/lib/db';
-import { hashPassword, verifyPassword } from '@/lib/password';
+import { requireAuth } from '@/lib/api-guard';
+import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 import { passwordSchema } from '@/lib/validators';
+import { hashPassword, verifyPassword } from '@/lib/password';
 
 /**
  * GET /api/user/profile
@@ -13,6 +13,12 @@ export async function GET(request: NextRequest) {
   try {
     const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) return authResult;
+
+    // Rate limit profile reads
+    const clientIp = getClientIp(request);
+    if (isRateLimited(clientIp, 60, 60 * 1000)) {
+      return rateLimitedResponse();
+    }
 
     const user = await db.user.findUnique({
       where: { id: authResult.id },
@@ -59,6 +65,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
     }
 
+    // Rate limit profile mutations
+    const clientIp = getClientIp(request);
+    if (isRateLimited(clientIp, 10, 60 * 1000)) {
+      return rateLimitedResponse();
+    }
+
     const body = await request.json();
 
     // Validation des champs autorisés
@@ -83,7 +95,8 @@ export async function PATCH(request: NextRequest) {
             continue;
           }
         }
-        updates[field] = value;
+        // Sanitize string inputs before DB write
+        updates[field] = sanitizeInput(value, 254);
       }
     }
 

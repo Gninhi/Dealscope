@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Désactiver strict mode — évite le double rendu qui peut causer des problèmes en iframe
-  reactStrictMode: false,
+  // Enable strict mode for development quality
+  reactStrictMode: true,
   outputFileTracingExcludes: {
     '*': ['./examples/**', './skills/**'],
   },
@@ -18,17 +18,9 @@ const nextConfig: NextConfig = {
           { key: 'X-Download-Options', value: 'noopen' },
         ],
       },
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          // CORS — restrict origins for API routes
-          { key: 'Access-Control-Allow-Origin', value: '' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,PATCH,DELETE,OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type,Authorization,X-CSRF-Token' },
-          { key: 'Access-Control-Max-Age', value: '86400' },
-        ],
-      },
+      // Note: CORS headers removed from next.config.ts.
+      // The app is same-origin (SPA + API served from same origin),
+      // so CORS is not needed. Middleware handles security headers.
     ];
   },
   allowedDevOrigins: [

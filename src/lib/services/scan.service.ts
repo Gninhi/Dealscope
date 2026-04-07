@@ -14,6 +14,7 @@ export interface ScanInput {
   sector?: string;
   icpProfileId?: string;
   limit?: number;
+  workspaceId?: string;
 }
 
 export interface ScanResult {
@@ -135,8 +136,10 @@ export async function executeScan(input: ScanInput): Promise<ScanResult> {
     throw new Error('Query or sector is required');
   }
 
-  // Ensure workspace exists
-  const workspace = await getWorkspace();
+  // Use provided workspaceId or fall back to getWorkspace()
+  const workspace = input.workspaceId
+    ? { id: input.workspaceId, name: '', slug: '', plan: '' }
+    : await getWorkspace();
   const workspaceId = workspace.id;
 
   // Create scan history

@@ -140,7 +140,15 @@ export function safeErrorResponse(
   message: string = 'Erreur interne du serveur',
   status: number = 500,
 ): NextResponse {
-  return NextResponse.json({ error: message }, { status });
+  // Defense-in-depth: in production, never expose raw error details.
+  // All callers should pass user-safe messages (French, no stack traces).
+  // If a raw internal error message somehow leaks here, replace it in prod.
+  const isDev = process.env.NODE_ENV === 'development';
+  const safeMessage = (status >= 500 && !isDev)
+    ? 'Erreur interne du serveur'
+    : message;
+
+  return NextResponse.json({ error: safeMessage }, { status });
 }
 
 export function rateLimitedResponse(): NextResponse {

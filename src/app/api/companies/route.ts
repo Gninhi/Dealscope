@@ -62,6 +62,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const body = await request.json();
     const parsed = createCompanySchema.safeParse(body);
@@ -154,6 +160,12 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -191,6 +203,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const body = await request.json();
     const parsed = patchCompanySchema.safeParse(body);
@@ -212,7 +230,12 @@ export async function PATCH(request: NextRequest) {
     const updateData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(parsed.data)) {
       if (key !== 'id' && ALLOWED_COMPANY_UPDATE_FIELDS.has(key) && value !== undefined) {
-        updateData[key] = value;
+        // Sanitize string fields
+        if (typeof value === 'string') {
+          updateData[key] = sanitizeInput(value, key === 'notes' ? 50000 : 200);
+        } else {
+          updateData[key] = value;
+        }
       }
     }
 

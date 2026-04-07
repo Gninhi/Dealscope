@@ -1,19 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateCsrfToken } from '@/lib/security';
 
 /**
- * Middleware — headers de sécurité et CSP compatibles iframe.
+ * Middleware — security headers and CSP compatible with iframe embedding.
  *
- * Règles critiques pour Z.ai iframe preview :
- *   - frame-ancestors autorise tous les parents (y compris Z.ai)
- *   - PAS de require-trusted-types-for 'script' (casse le JS)
- *   - PAS de HSTS (problématique en dev / iframe)
- *   - PAS de X-Frame-Options (redondant avec frame-ancestors)
- *   - script-src autorise 'unsafe-inline' et 'unsafe-eval' en dev
+ * Critical rules for Z.ai iframe preview:
+ *   - frame-ancestors allows all parents (including Z.ai)
+ *   - NO require-trusted-types-for 'script' (breaks JS)
+ *   - NO HSTS in dev (problematic for iframe / dev)
+ *   - X-Frame-Options kept for older browsers alongside frame-ancestors CSP
+ *   - script-src allows 'unsafe-inline' and 'unsafe-eval' in dev
  */
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
   const isDev = process.env.NODE_ENV === 'development';
+
+  // ── CSRF Token Cookie (double-submit pattern) ─────────────
+  // Set csrf-token cookie if it doesn't exist, so client-side
+  // apiFetch can read it and send it as X-CSRF-Token header.
+  if (!request.cookies.get('csrf-token')) {
+    const token = generateCsrfToken();
+    response.cookies.set('csrf-token', token, {
+      path: '/',
+      sameSite: 'lax',
+      httpOnly: false, // JS needs to read this cookie
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
 
   // ── Content Security Policy ──────────────────────────────────
   // NOTE: 'unsafe-inline' is required in both dev and production because
@@ -37,13 +51,24 @@ export function middleware(request: NextRequest) {
     "object-src 'none'",
   ].join('; '));
 
-  // ── Autres headers de sécurité (sans X-Frame-Options, sans HSTS) ──
+  // ── Security headers ──────────────────────────────────────────
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   response.headers.set('X-Powered-By', '');
 
-  // Cache-Control permissif pour éviter les rechargements en boucle en iframe
+  // X-Frame-Options for older browsers (alongside frame-ancestors CSP above)
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+
+  // Strict-Transport-Security — NOT in development (breaks iframe / HTTP)
+  if (!isDev) {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains',
+    );
+  }
+
+  // Cache-Control: no-cache for dynamic pages (static assets excluded by matcher)
   response.headers.set('Cache-Control', 'private, no-cache, max-age=0, must-revalidate');
 
   // Taille maximale des requêtes (défense en profondeur)

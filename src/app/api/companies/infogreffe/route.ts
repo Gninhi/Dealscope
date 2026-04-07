@@ -21,7 +21,12 @@ export async function GET(request: NextRequest) {
     const siren = searchParams.get('siren');
     
     if (siren) {
-      const result = await getInfoGreffeBySiren(siren);
+      // Validate SIREN format before making API call
+      const safeSiren = siren.replace(/[^0-9]/g, '').slice(0, 9);
+      if (safeSiren.length !== 9) {
+        return NextResponse.json({ error: 'Format SIREN invalide (9 chiffres requis)' }, { status: 400 });
+      }
+      const result = await getInfoGreffeBySiren(safeSiren);
       return NextResponse.json({ results: result ? [result] : [], total: result ? 1 : 0 });
     }
 

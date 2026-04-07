@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       sector: sector || undefined,
       icpProfileId: icpProfileId || undefined,
       limit,
+      workspaceId: authResult.workspaceId,
     });
 
     return NextResponse.json(result);

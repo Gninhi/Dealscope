@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { chatMessageSchema } from '@/validators';
-import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
+import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse, sanitizeInput } from '@/lib/security';
 import { getGemma4 } from '@/lib/gemma4';
 
 // ─── Suggested Prompts ─────────────────────────────────────────────────────
@@ -45,13 +45,16 @@ export async function POST(request: NextRequest) {
 
     const { message } = parsed.data;
 
+    // Sanitize message content before DB insert
+    const sanitizedMessage = sanitizeInput(message, 4000);
+
     const workspaceId = authResult.workspaceId;
 
     await db.chatMessage.create({
       data: {
         workspaceId,
         role: 'user',
-        content: message,
+        content: sanitizedMessage,
       },
     });
 

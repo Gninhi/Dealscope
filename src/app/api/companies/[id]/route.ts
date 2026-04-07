@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { updateCompanySchema } from '@/validators';
 import { ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
-import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, isValidId, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 
 // GET /api/companies/[id]
 export async function GET(
@@ -12,6 +12,11 @@ export async function GET(
 ) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
+
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 60, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
 
   try {
     const { id } = await params;
@@ -63,6 +68,11 @@ export async function PUT(
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const { id } = await params;
 
@@ -92,11 +102,15 @@ export async function PUT(
       );
     }
 
-    // Whitelist fields
+    // Whitelist and sanitize fields
     const sanitizedData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(parsed.data)) {
       if (ALLOWED_COMPANY_UPDATE_FIELDS.has(key) && value !== undefined) {
-        sanitizedData[key] = value;
+        if (typeof value === 'string') {
+          sanitizedData[key] = sanitizeInput(value, key === 'notes' ? 50000 : 200);
+        } else {
+          sanitizedData[key] = value;
+        }
       }
     }
 
@@ -130,6 +144,11 @@ export async function DELETE(
   // CSRF protection
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
   }
 
   try {

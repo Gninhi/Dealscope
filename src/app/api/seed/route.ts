@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { requireAdmin } from '@/lib/api-guard';
-import { validateCsrf, safeErrorResponse } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse } from '@/lib/security';
 
 // POST /api/seed - seed demo data avec de VRAIES entreprises françaises
-// SECURITY: Admin only, CSRF protected
+// SECURITY: Admin only, CSRF protected, disabled in production
 export async function POST(request: NextRequest) {
   // CRITICAL: Disable in production — seed is a dev/debug tool only
   if (process.env.NODE_ENV === 'production') {
@@ -19,6 +19,12 @@ export async function POST(request: NextRequest) {
   // CSRF protection
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  // Rate limit seed endpoint
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 2, 60 * 1000)) {
+    return rateLimitedResponse();
   }
 
   try {

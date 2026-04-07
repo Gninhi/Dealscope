@@ -1,5 +1,9 @@
 'use client';
 
+// TODO: This component is currently not imported anywhere in the application.
+// It was built as a standalone profile settings page. Either integrate it into
+// the main layout (e.g., as a tab in SettingsTab) or remove it if not needed.
+
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import {

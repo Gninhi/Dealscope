@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
       data: { resetToken, resetTokenExpiry },
     });
 
+    // TODO: Send reset email via an email service (e.g., Resend, SendGrid, Nodemailer).
+    // Currently the token is stored in DB but no email is sent.
+    // The user will not receive a reset link until email integration is configured.
+
     return NextResponse.json({
       success: true,
       message: 'Si un compte existe avec cet email, un lien de réinitialisation sera envoyé.',

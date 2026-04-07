@@ -175,7 +175,7 @@ export default function PipelineTab() {
 
       // Also refresh companies
       const compRes = await apiFetch('/api/companies');
-      if (compRes.ok) { const text = await compRes.text(); try { setCompanies(JSON.parse(text)); } catch (error) { console.error('[PipelineTab] Failed to parse companies data:', error); } }
+      if (compRes.ok) { const text = await compRes.text(); try { const data = JSON.parse(text); if (Array.isArray(data.companies)) setCompanies(data.companies); } catch (error) { console.error('[PipelineTab] Failed to parse companies data:', error); } }
     } catch (error) {
       console.error('Error fetching pipeline:', error);
     } finally {

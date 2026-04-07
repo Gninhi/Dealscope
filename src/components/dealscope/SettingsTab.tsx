@@ -49,7 +49,7 @@ export default function SettingsTab() {
     // Fetch workspace info
     apiFetch('/api/companies')
       .then(res => { if (!res.ok) return ''; return res.text(); })
-      .then(text => { if (!text) return; try { const data = JSON.parse(text); setWorkspaceInfo({ companyCount: Array.isArray(data) ? data.length : 0 }); } catch (error) { console.error('[SettingsTab] Failed to parse workspace info:', error); } })
+      .then(text => { if (!text) return; try { const data = JSON.parse(text); setWorkspaceInfo({ companyCount: data.total || (Array.isArray(data.companies) ? data.companies.length : 0) }); } catch (error) { console.error('[SettingsTab] Failed to parse workspace info:', error); } })
       .catch(() => {});
   }, [setIcpProfiles]);
 

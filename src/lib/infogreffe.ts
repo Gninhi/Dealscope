@@ -184,8 +184,12 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
  */
 export async function getInfoGreffeBySiren(siren: string): Promise<InfoGreffeRecord | null> {
   try {
+    // Sanitize SIREN to prevent SQL injection in the WHERE clause
+    const safeSiren = siren.replace(/[^0-9]/g, '').slice(0, 9);
+    if (safeSiren.length !== 9) return null;
+
     const response = await fetch(
-      `${INFOGREFFE_BASE}?where=siren%3D"${siren}"&limit=1`,
+      `${INFOGREFFE_BASE}?where=siren%3D"${safeSiren}"&limit=1`,
       {
         headers: {
           'Accept': 'application/json',

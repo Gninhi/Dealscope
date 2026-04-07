@@ -16,7 +16,7 @@ const updateIcpProfileSchema = z.object({
   weights: z.record(z.string(), z.unknown()).optional(),
   isActive: z.boolean().optional(),
 });
-import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, isValidId } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, isValidId, sanitizeInput } from '@/lib/security';
 
 // GET /api/icp-profiles
 export async function GET(request: NextRequest) {
@@ -57,6 +57,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const body = await request.json();
     const parsed = createIcpProfileSchema.safeParse(body);
@@ -75,7 +81,7 @@ export async function POST(request: NextRequest) {
     const profile = await db.iCPProfile.create({
       data: {
         workspaceId,
-        name,
+        name: sanitizeInput(name, 100),
         criteria: criteria ? JSON.stringify(criteria) : '{}',
         weights: weights ? JSON.stringify(weights) : '{}',
       },
@@ -98,6 +104,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
   }
 
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 20, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
   try {
     const body = await request.json();
     const parsed = updateIcpProfileSchema.safeParse(body);
@@ -116,7 +128,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const updateData: Record<string, unknown> = {};
-    if (name !== undefined) updateData.name = name;
+    if (name !== undefined) updateData.name = sanitizeInput(name, 100);
     if (criteria !== undefined) updateData.criteria = JSON.stringify(criteria);
     if (weights !== undefined) updateData.weights = JSON.stringify(weights);
     if (isActive !== undefined) updateData.isActive = isActive;
@@ -147,6 +159,12 @@ export async function DELETE(request: NextRequest) {
   // CSRF protection
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  // Rate limit mutations
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
   }
 
   try {

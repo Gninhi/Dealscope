@@ -4,17 +4,10 @@
 
 import { VALID_STATUSES } from '@/constants';
 import type { SearchFilters } from '@/lib/types';
+import { ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
 
-// ── Allowed fields for company PATCH updates ─────────────────────
-export const ALLOWED_COMPANY_UPDATE_FIELDS = new Set([
-  'notes',
-  'icpScore',
-  'status',
-  'sector',
-  'revenue',
-  'employeeCount',
-  'source',
-]);
+// Re-export for backward compatibility (consumers import from here)
+export { ALLOWED_COMPANY_UPDATE_FIELDS };
 
 // ── Valid statuses for company pipeline (derived from single source of truth) ──
 export const VALID_STATUSES_SET = new Set(VALID_STATUSES as readonly string[]);
