@@ -1,9 +1,5 @@
 'use client';
 
-// TODO: This component is currently not imported anywhere in the application.
-// It was built as a standalone profile settings page. Either integrate it into
-// the main layout (e.g., as a tab in SettingsTab) or remove it if not needed.
-
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import {
@@ -60,7 +56,7 @@ function getAvatarColor(name: string, email: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export default function ProfileSection() {
+export function UserProfileCard() {
   const { data: session, update: updateSession } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -199,12 +195,6 @@ export default function ProfileSection() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Paramètres</h2>
-        <p className="text-muted-foreground text-sm mt-1">Configuration de votre espace de travail</p>
-      </div>
-
       {/* Success / Error banners */}
       {successMessage && (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 animate-fade-in-up">
@@ -511,4 +501,6 @@ export default function ProfileSection() {
   );
 }
 
+// Backward-compatible default export
+export default UserProfileCard;
 

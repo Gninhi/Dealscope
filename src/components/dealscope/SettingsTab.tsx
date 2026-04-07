@@ -8,6 +8,7 @@ import {
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { apiFetch } from '@/lib/api-client';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { UserProfileCard } from '@/components/dealscope/ProfileSection';
 
 interface ICPProfile {
   id: string;
@@ -142,6 +143,9 @@ export default function SettingsTab() {
         <h2 className="text-2xl font-bold text-foreground">Paramètres</h2>
         <p className="text-muted-foreground text-sm mt-1">Configuration de votre espace de travail</p>
       </div>
+
+      {/* User Profile */}
+      <UserProfileCard />
 
       {/* Workspace info */}
       <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-6">

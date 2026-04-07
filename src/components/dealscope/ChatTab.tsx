@@ -26,7 +26,7 @@ export default function ChatTab() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const copiedTimeoutRef = useRef<NodeJS.Timeout>(null);
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const fetchMessages = useCallback(async () => {
     try {

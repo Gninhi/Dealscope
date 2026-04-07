@@ -9,6 +9,7 @@ import {
   AlertCircle, ArrowUpRight,
 } from 'lucide-react';
 import { timeAgo } from '@/lib/utils';
+import { apiFetch } from '@/lib/api-client';
 
 // ── Types ────────────────────────────────────────────────────────
 interface NewsItem {
@@ -72,7 +73,7 @@ export default function NewsTab() {
       params.set('category', activeCat);
       if (refresh) params.set('refresh', 'true');
 
-      const res = await fetch(`/api/news?${params}`);
+      const res = await apiFetch(`/api/news?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
@@ -113,8 +114,8 @@ export default function NewsTab() {
 
     setLoadingSummary(p => ({ ...p, [key]: true }));
     try {
-      const res = await fetch('/api/news/summary', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res = await apiFetch('/api/news/summary', {
+        method: 'POST',
         body: JSON.stringify({ title: item.title, snippet: item.snippet }),
       });
       const data = await res.json();

@@ -205,3 +205,60 @@ Stage Summary:
 - `src/app/api/auth/forgot-password/route.ts` (S15)
 - `src/hooks/use-mobile.ts` (S13 — DELETED)
 - `src/components/dealscope/ProfileSection.tsx` (S14 — TODO added)
+
+---
+
+## Session — Problème "rien ne s'affiche" — Correction complète
+
+### P1. NEXTAUTH_SECRET manquant (CRITIQUE — cause principale)
+- **Sévérité**: CRITIQUE
+- **Fichier**: `.env`
+- **Problème**: `NEXTAUTH_SECRET` n'était pas défini. Sans cette variable, NextAuth ne peut pas signer/vérifier les JWTs. L'authentification échouait silencieusement → `useSession()` ne résolvait jamais → écran de chargement infini.
+- **Correction**: Ajout de `NEXTAUTH_SECRET` (64 bytes hexa) et `NEXTAUTH_URL` dans `.env`
+
+### P2. NewsTab.tsx — fetch POST sans CSRF (403)
+- **Sévérité**: Moyenne
+- **Fichier**: `src/components/dealscope/NewsTab.tsx`
+- **Problème**: Les appels `fetch()` bruts vers `/api/news/summary` (POST) n'incluaient pas le header `X-CSRF-Token`. Le serveur valide CSRF → erreur 403.
+- **Correction**: Remplacement de `fetch` par `apiFetch` pour les requêtes POST et GET.
+
+### P3. ProfileSection.tsx — composant mort non intégré
+- **Sévérité**: Faible
+- **Fichiers**: `ProfileSection.tsx`, `SettingsTab.tsx`
+- **Problème**: 515 lignes de code fonctionnel (édition profil, changement mot de passe, déconnexion) jamais importées nulle part.
+- **Correction**: Renommage en `UserProfileCard` (named export), intégration dans `SettingsTab.tsx`.
+
+### P4. ChatTab.tsx — type NodeJS.Timeout non portable
+- **Sévérité**: Faible
+- **Fichier**: `src/components/dealscope/ChatTab.tsx`
+- **Problème**: `useRef<NodeJS.Timeout>` nécessite `@types/node` côté client.
+- **Correction**: Remplacement par `ReturnType<typeof setTimeout>`.
+
+### P5. Dépendances inutilisées (22 packages Radix UI)
+- **Sévérité**: Faible
+- **Fichier**: `package.json`
+- **Problème**: 22 packages `@radix-ui/*` installés mais non utilisés (seuls 3 réellement importés).
+- **Correction**: Suppression de 22 packages Radix UI, `react-hook-form`, `react-day-picker`, `bun-types`, `tailwindcss-animate` (remplacé par `tw-animate-css`).
+
+### P6. @types/node manquant
+- **Sévérité**: Faible
+- **Problème**: 15 erreurs TS dans les fichiers serveur (`process.env`, `require`).
+- **Correction**: `npm install --save-dev @types/node`.
+
+### P7. 11 vulnérabilités npm audit
+- **Sévérité**: Haute (prévention)
+- **Correction**: `npm audit fix` → 0 vulnérabilités.
+
+### Build Verification
+- `npx next build` ✅ — 28/28 pages compilées, 0 erreurs TypeScript
+- `npm audit` ✅ — 0 vulnérabilités
+- Serveur de production ✅ — HTTP 200 sur `/login`, `/`, `/api`
+- 48 fichiers audités, 0 broken imports, 0 circular dependencies
+
+### Files Modified (total: 7)
+- `.env` (P1)
+- `src/components/dealscope/NewsTab.tsx` (P2)
+- `src/components/dealscope/ProfileSection.tsx` (P3)
+- `src/components/dealscope/SettingsTab.tsx` (P3)
+- `src/components/dealscope/ChatTab.tsx` (P4)
+- `package.json` (P5, P6)
