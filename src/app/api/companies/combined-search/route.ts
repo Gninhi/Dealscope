@@ -4,7 +4,7 @@ import { searchInfoGreffe } from '@/lib/infogreffe';
 import { parseInfoGreffeFinancial } from '@/lib/infogreffe';
 import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
-import { buildSearchFilters, hasSearchParams } from '@/lib/search-utils';
+import { parseSearchFilters, hasSearchParams } from '@/lib/services/company.service';
 import type { CombinedSearchResult, InfoGreffeRecord } from '@/lib/types';
 
 // GET /api/companies/combined-search - recherche parallèle
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    const filters = buildSearchFilters(new URL(request.url).searchParams);
+    const filters = parseSearchFilters(new URL(request.url).searchParams);
 
     if (!hasSearchParams(filters)) {
       return NextResponse.json({ error: 'Au moins un paramètre de recherche est requis' }, { status: 400 });

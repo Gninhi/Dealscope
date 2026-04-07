@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  X, Building2, MapPin, Briefcase, Users, TrendingUp, Calendar,
-  ExternalLink, Edit3, Save, Star, Target, ChevronDown, ChevronUp,
+  X, Building2, Briefcase, Users, TrendingUp, Calendar,
+  Edit3, Save, Star, Target, ChevronDown, ChevronUp,
   Loader2, Globe, BarChart3, User, Mail, AlertCircle, Shield,
   Landmark, Activity, Clock, FileText, Database, RefreshCw,
-  CheckCircle2, ArrowUpRight, Tag
+  CheckCircle2, ArrowUpRight, Tag, Check, Trash2
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatDate, getScoreColor, getScoreLabel, getStageLabel, getStageColor, getStatutBadgeClass, getStatutLabel } from '@/lib/utils';
 import type { CompanyWithRelations } from '@/lib/types';
@@ -747,7 +747,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                             <p className="text-xs text-indigo-400 flex items-center gap-1 mt-0.5">
                               <Mail className="w-3 h-3" />
                               {c.email}
-                              {c.emailVerified && <CheckIcon className="w-3 h-3 text-emerald-400" />}
+                              {c.emailVerified && <Check className="w-3 h-3 text-emerald-400" />}
                             </p>
                           )}
                         </div>
@@ -868,7 +868,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
               onClick={handleDelete}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-destructive hover:bg-destructive/10 transition-colors"
             >
-              <Trash2Icon className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5" />
               Supprimer
             </button>
           )}
@@ -897,18 +897,4 @@ function DetailRow({ label, value }: { label: string; value: string | React.Reac
   );
 }
 
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
 
-function Trash2Icon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    </svg>
-  );
-}

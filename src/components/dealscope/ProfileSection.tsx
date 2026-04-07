@@ -5,10 +5,11 @@ import { useSession } from 'next-auth/react';
 import {
   User, Mail, Lock, Shield, Calendar, Building2,
   Save, Loader2, CheckCircle, AlertCircle, Eye, EyeOff,
-  BadgeCheck, Clock, LogOut
+  BadgeCheck, LogOut
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
+import { getPasswordStrength } from '@/components/auth/password-strength';
 
 interface UserProfile {
   id: string;
@@ -179,22 +180,6 @@ export default function ProfileSection() {
     }
   };
 
-  // Password strength calculator
-  const getPasswordStrength = (password: string): { score: number; label: string; color: string } => {
-    if (!password) return { score: 0, label: '', color: '' };
-    let score = 0;
-    if (password.length >= 8) score++;
-    if (password.length >= 12) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[a-z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-
-    if (score <= 2) return { score, label: 'Faible', color: 'bg-red-500' };
-    if (score <= 4) return { score, label: 'Moyen', color: 'bg-amber-500' };
-    return { score, label: 'Fort', color: 'bg-emerald-500' };
-  };
-
   const passwordStrength = getPasswordStrength(newPassword);
 
   if (loading) {
@@ -207,18 +192,6 @@ export default function ProfileSection() {
 
   const initials = getInitials(profile?.displayName || '', profile?.email || '');
   const avatarColor = getAvatarColor(profile?.displayName || '', profile?.email || '');
-
-  const formatDate = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
-    } catch {
-      return dateStr;
-    }
-  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

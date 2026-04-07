@@ -4,7 +4,7 @@
 
 import { db } from '@/lib/db';
 import { getInfoGreffeBySiren, parseInfoGreffeFinancial } from '@/lib/api';
-import type { InfoGreffeRecord } from '@/types';
+import type { InfoGreffeRecord } from '@/lib/types';
 import { isValidCuid } from '@/validators';
 
 // ── Batch enrich cooldown ──────────────────────────────────────

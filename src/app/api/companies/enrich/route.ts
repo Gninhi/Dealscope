@@ -3,9 +3,7 @@ import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 import { enrichCompany, batchEnrich, type BatchEnrichResult } from '@/lib/services/enrich.service';
-import { z } from 'zod';
-
-const batchEnrichSchema = z.object({ forceAll: z.boolean().optional() });
+import { batchEnrichSchema } from '@/validators';
 
 // GET /api/companies/enrich?id=xxx — enrich a single company
 export async function GET(request: NextRequest) {

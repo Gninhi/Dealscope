@@ -47,13 +47,9 @@ export async function POST(request: NextRequest) {
       data: { resetToken, resetTokenExpiry },
     });
 
-    // In production, this would send an email with the reset link.
-    // NEVER expose the token in production — only in development for testing
     return NextResponse.json({
       success: true,
       message: 'Si un compte existe avec cet email, un lien de réinitialisation sera envoyé.',
-      // Development only: expose token for testing convenience
-      ...(process.env.NODE_ENV === 'development' && { resetToken }),
     });
   } catch (error) {
     console.error('Forgot password error:', error);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Settings, Plus, Trash2, Loader2, CheckCircle, AlertCircle,
+  Plus, Trash2, Loader2, CheckCircle, AlertCircle,
   Database, Sparkles, Building2
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
@@ -34,7 +34,7 @@ export default function SettingsTab() {
       const res = await fetch('/api/icp-profiles');
       if (!res.ok) return;
       const text = await res.text();
-      try { const data = JSON.parse(text); if (Array.isArray(data)) setIcpProfiles(data); } catch {}
+      try { const data = JSON.parse(text); if (Array.isArray(data)) setIcpProfiles(data); } catch (error) { console.error('[SettingsTab] Failed to parse ICP profiles:', error); }
     } catch (error) {
       console.error('Error fetching profiles:', error);
     } finally {
@@ -47,7 +47,7 @@ export default function SettingsTab() {
     // Fetch workspace info
     fetch('/api/companies')
       .then(res => { if (!res.ok) return ''; return res.text(); })
-      .then(text => { if (!text) return; try { const data = JSON.parse(text); setWorkspaceInfo({ companyCount: Array.isArray(data) ? data.length : 0 }); } catch {} })
+      .then(text => { if (!text) return; try { const data = JSON.parse(text); setWorkspaceInfo({ companyCount: Array.isArray(data) ? data.length : 0 }); } catch (error) { console.error('[SettingsTab] Failed to parse workspace info:', error); } })
       .catch(() => {});
   }, [setIcpProfiles]);
 

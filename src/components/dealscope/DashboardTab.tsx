@@ -65,7 +65,7 @@ export default function DashboardTab() {
 
     fetch('/api/dashboard/stats', { signal: controller.signal })
       .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); })
-      .then(text => { try { setStats(JSON.parse(text)); } catch {} finally { setLoading(false); } })
+      .then(text => { try { setStats(JSON.parse(text)); } catch (error) { console.error('[DashboardTab] Failed to parse stats:', error); } finally { setLoading(false); } })
       .catch(() => setLoading(false));
 
     return () => { clearTimeout(timeout); controller.abort(); };
@@ -110,28 +110,24 @@ export default function DashboardTab() {
           label="Entreprises"
           value={formatNumber(s.totalCompanies)}
           color="from-indigo-500 to-violet-500"
-          delay="0ms"
         />
         <StatCard
           icon={<Target className="w-5 h-5" />}
           label="Score ICP Moyen"
           value={`${s.avgIcpScore}/100`}
           color="from-emerald-500 to-teal-500"
-          delay="75ms"
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5" />}
           label="Signaux détectés"
           value={formatNumber(s.totalSignals)}
           color="from-amber-500 to-orange-500"
-          delay="150ms"
         />
         <StatCard
           icon={<Users className="w-5 h-5" />}
           label="Contacts"
           value={formatNumber(s.totalContacts)}
           color="from-pink-500 to-rose-500"
-          delay="225ms"
         />
       </div>
 
@@ -274,13 +270,12 @@ export default function DashboardTab() {
   );
 }
 
-function StatCard({ icon, label, value, color, delay }: {
-  icon: React.ReactNode; label: string; value: string; color: string; delay: string;
+function StatCard({ icon, label, value, color }: {
+  icon: React.ReactNode; label: string; value: string; color: string;
 }) {
   return (
     <div
       className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-5 hover:shadow-lg transition-all duration-300"
-      style={{ animationDelay: delay }}
     >
       <div className="flex items-center justify-between mb-3">
         <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-white opacity-90`}>

@@ -17,12 +17,6 @@ export const newsSearchSchema = z.object({
   ]).optional().default('all'),
 });
 
-export const searchSchema = z.object({
-  q: z.string().min(1, 'Requête requise'),
-  page: z.number().int().min(1).optional().default(1),
-  per_page: z.number().int().min(1).max(25).optional().default(10),
-});
-
 export const createAlertSchema = z.object({
   name: z.string().min(1, 'Nom requis').max(100),
   type: z.enum(ALERT_TYPES),

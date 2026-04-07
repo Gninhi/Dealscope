@@ -1,8 +1,4 @@
 // Barrel re-export for all validators
-export {
-  registerSchema,
-  setupSchema,
-} from './auth';
 
 export {
   CUID_REGEX,
@@ -21,7 +17,6 @@ export {
 export {
   ALERT_TYPES,
   newsSearchSchema,
-  searchSchema,
   createAlertSchema,
   updateAlertSchema,
   createBookmarkSchema,
@@ -34,5 +29,4 @@ export {
   passwordSchema,
   patchCompanySchema,
   ALLOWED_COMPANY_UPDATE_FIELDS,
-  ALLOWED_COMPANY_PATCH_FIELDS,
 } from '@/lib/validators';

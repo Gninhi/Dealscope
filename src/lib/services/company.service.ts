@@ -3,7 +3,7 @@
 // No NextRequest/NextResponse dependencies.
 
 import { VALID_STATUSES } from '@/constants';
-import type { SearchFilters } from '@/types';
+import type { SearchFilters } from '@/lib/types';
 
 // ── Allowed fields for company PATCH updates ─────────────────────
 export const ALLOWED_COMPANY_UPDATE_FIELDS = new Set([

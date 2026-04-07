@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Radar, Search, Loader2, Zap, Building2, CheckCircle, AlertCircle,
+  Radar, Search, Loader2, Zap, CheckCircle, AlertCircle,
   FileText, Sparkles
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
@@ -26,8 +26,8 @@ export default function ScanTab() {
 
   useEffect(() => {
     fetch('/api/icp-profiles')
-      .then(res => { if (!res.ok) return res.text(); return res.text(); })
-      .then(text => { try { const data = JSON.parse(text); if (Array.isArray(data)) setIcpProfiles(data); } catch {} })
+      .then(res => res.text())
+      .then(text => { try { const data = JSON.parse(text); if (Array.isArray(data)) setIcpProfiles(data); } catch (error) { console.error('[ScanTab] Failed to parse ICP profiles:', error); } })
       .catch(() => {});
   }, [setIcpProfiles]);
 

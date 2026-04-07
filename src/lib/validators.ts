@@ -5,6 +5,8 @@
  */
 
 import { z } from 'zod';
+import { ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/services/company.service';
+export { ALLOWED_COMPANY_UPDATE_FIELDS };
 
 // ─── Shared password schema ────────────────────────────────────
 
@@ -35,19 +37,5 @@ export const patchCompanySchema = z.object({
 });
 
 // ─── Field whitelists ──────────────────────────────────────────
-
-export const ALLOWED_COMPANY_UPDATE_FIELDS = new Set([
-  'notes',
-  'icpScore',
-  'status',
-  'sector',
-  'revenue',
-  'employeeCount',
-  'source',
-]);
-
-export const ALLOWED_COMPANY_PATCH_FIELDS = new Set([
-  'notes',
-  'status',
-  'icpScore',
-]);
+// Single source of truth: @/lib/services/company.service.ts
+// Re-exported above for backward compatibility.

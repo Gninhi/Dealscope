@@ -5,7 +5,7 @@ import {
   Search, SlidersHorizontal, X, MapPin, Building2, Users, Filter,
   ChevronDown, ChevronUp, ExternalLink, Plus, Loader2, Building,
   Briefcase, TrendingUp, ChevronLeft, ChevronRight,
-  DollarSign, CalendarDays, ArrowUpDown, Landmark
+  DollarSign, CalendarDays, ArrowUpDown, Landmark, Check
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { formatCurrency, formatNumber, formatDate, getStageLabel, getStageColor, getStatutBadgeClass, getStatutLabel } from '@/lib/utils';
@@ -684,7 +684,7 @@ export default function SearchTab() {
                   <div className="flex items-center gap-2 pt-2 border-t border-border">
                     {inPipeline ? (
                       <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400">
-                        <CheckIcon className="w-3.5 h-3.5" />
+                        <Check className="w-3.5 h-3.5" />
                         Dans le pipeline
                       </span>
                     ) : (
@@ -803,10 +803,3 @@ function FilterSelect({ label, value, onChange, options, placeholder }: {
   );
 }
 
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}

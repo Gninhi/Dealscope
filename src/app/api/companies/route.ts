@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { createCompanySchema } from '@/validators';
-import { patchCompanySchema, ALLOWED_COMPANY_PATCH_FIELDS } from '@/lib/validators';
+import { patchCompanySchema, ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
 import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, isValidId, sanitizeInput } from '@/lib/security';
 
 // GET /api/companies - list all companies with relations (paginated)
@@ -211,7 +211,7 @@ export async function PATCH(request: NextRequest) {
     // Build update data from ONLY validated & whitelisted fields
     const updateData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(parsed.data)) {
-      if (key !== 'id' && ALLOWED_COMPANY_PATCH_FIELDS.has(key) && value !== undefined) {
+      if (key !== 'id' && ALLOWED_COMPANY_UPDATE_FIELDS.has(key) && value !== undefined) {
         updateData[key] = value;
       }
     }

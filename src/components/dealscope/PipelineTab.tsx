@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  GripVertical, Building2, MapPin, Users, ExternalLink, Trash2, X,
-  ChevronRight, TrendingUp, Briefcase, Star, Loader2, ArrowUpRight,
+  GripVertical, MapPin, Users, ExternalLink, Trash2,
+  TrendingUp, Briefcase, Loader2, ArrowUpRight,
   CheckCircle2
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
-import { getStageLabel, getStageColor, getStageDotColor, formatCurrency, formatNumber, timeAgo } from '@/lib/utils';
+import { getStageDotColor, formatCurrency, formatNumber, timeAgo } from '@/lib/utils';
 import { PIPELINE_STAGES } from '@/constants';
 import type { CompanyWithRelations } from '@/lib/types';
 import CompanyProfileDialog from './CompanyProfileDialog';
@@ -169,11 +169,11 @@ export default function PipelineTab() {
   const fetchPipeline = useCallback(async () => {
     try {
       const res = await fetch('/api/pipeline');
-      if (res.ok) { const text = await res.text(); try { setPipelineData(JSON.parse(text)); } catch {} }
+      if (res.ok) { const text = await res.text(); try { setPipelineData(JSON.parse(text)); } catch (error) { console.error('[PipelineTab] Failed to parse pipeline data:', error); } }
 
       // Also refresh companies
       const compRes = await fetch('/api/companies');
-      if (compRes.ok) { const text = await compRes.text(); try { setCompanies(JSON.parse(text)); } catch {} }
+      if (compRes.ok) { const text = await compRes.text(); try { setCompanies(JSON.parse(text)); } catch (error) { console.error('[PipelineTab] Failed to parse companies data:', error); } }
     } catch (error) {
       console.error('Error fetching pipeline:', error);
     } finally {

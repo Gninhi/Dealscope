@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { createAlertSchema } from '@/validators';
-import { z } from 'zod';
-
-const patchAlertSchema = z.object({
-  id: z.string().min(1, 'ID requis'),
-  isActive: z.boolean(),
-});
+import { createAlertSchema, updateAlertSchema as patchAlertSchema } from '@/validators';
 import { validateCsrf, safeErrorResponse, isValidId } from '@/lib/security';
 
 // GET /api/news/alerts
