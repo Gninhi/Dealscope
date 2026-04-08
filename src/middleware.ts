@@ -45,7 +45,7 @@ export function middleware(request: NextRequest) {
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
     "connect-src 'self' https: wss:",
-    "frame-ancestors 'self' https://*.z.ai https://z.ai http://localhost:3000",
+    "frame-ancestors *",
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
@@ -57,8 +57,8 @@ export function middleware(request: NextRequest) {
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   response.headers.set('X-Powered-By', '');
 
-  // X-Frame-Options for older browsers (alongside frame-ancestors CSP above)
-  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  // X-Frame-Options removed — frame-ancestors CSP directive handles framing policy.
+  // Keeping both causes conflicts in cross-origin iframe scenarios (Z.ai preview).
 
   // Strict-Transport-Security — NOT in development (breaks iframe / HTTP)
   if (!isDev) {

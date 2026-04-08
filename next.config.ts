@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Enable strict mode for development quality
-  reactStrictMode: true,
+  // Disable strict mode — avoids double-render issues in Z.ai iframe
+  reactStrictMode: false,
   outputFileTracingExcludes: {
     '*': ['./examples/**', './skills/**'],
   },

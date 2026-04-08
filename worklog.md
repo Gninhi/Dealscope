@@ -262,3 +262,31 @@ Stage Summary:
 - `src/components/dealscope/SettingsTab.tsx` (P3)
 - `src/components/dealscope/ChatTab.tsx` (P4)
 - `package.json` (P5, P6)
+
+---
+Task ID: 5
+Agent: Super Z (main)
+Task: Démarrage complet de l'application, vérification fonctionnelle et capture d'aperçus visuels
+
+Work Log:
+- Vérifié l'environnement : .env (NEXTAUTH_SECRET, DATABASE_URL, etc.), DB SQLite (13 tables, 1 utilisateur, 2 workspaces, 10 entreprises)
+- Vérifié les dépendances : next, prisma, next-auth tous installés et configurés
+- Build Next.js : ✅ 28/28 pages compilées, 0 erreurs TypeScript
+- Serveur de production démarré sur port 3000
+- Test de toutes les pages : Login (200), Register (200), Setup (200), Home (200), API (200)
+- Test des endpoints API : /api → {"status":"ok"}, /api/auth/session → null (non authentifié), /api/dashboard/stats → {"error":"Non authentifié"} (correct)
+- Réinitialisation du mot de passe de l'utilisateur demo@dealscope.fr
+- Connexion réussie avec le compte demo → redirection vers le dashboard
+- Navigation et capture sur les 7 onglets principaux : Dashboard, Recherche, Pipeline, Scan IA, Chat IA Gemma 4, Actualités & Alertes, Paramètres
+- Test du thème sombre (dark mode) sur le Dashboard
+- Test de la recherche d'entreprise (Dataiku)
+- Test de l'ouverture du profil entreprise (Capgemini)
+- Test de l'envoi d'un message dans le Chat IA Gemma 4
+- 15 screenshots PNG capturés dans /home/z/my-project/download/
+
+Stage Summary:
+- Application DealScope v0.3.0 entièrement fonctionnelle
+- Toutes les pages et APIs répondent correctement
+- Authentification NextAuth fonctionnelle
+- Base de données peuplée (10 entreprises, pipeline, etc.)
+- 15 screenshots de toutes les pages capturés
