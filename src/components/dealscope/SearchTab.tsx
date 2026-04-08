@@ -206,6 +206,14 @@ export default function SearchTab() {
             onKeyDown={handleKeyDown}
           />
           <button
+            onClick={() => handleSearch(1)}
+            disabled={isSearching}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-50 transition-all shadow-sm"
+          >
+            {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+            Rechercher
+          </button>
+          <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               showFilters

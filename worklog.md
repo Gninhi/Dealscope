@@ -290,3 +290,29 @@ Stage Summary:
 - Authentification NextAuth fonctionnelle
 - Base de données peuplée (10 entreprises, pipeline, etc.)
 - 15 screenshots de toutes les pages capturés
+
+---
+Task ID: 6
+Agent: Super Z (main) + Full-stack sub-agent
+Task: Fix Recherche, Pipeline backend, Actualités & Alertes premium
+
+Work Log:
+- **Analyse complète** de 27 fichiers (API routes, services, composants, types, store, constants)
+- **Fix 1 — Recherche** : Ajout d'un bouton "Rechercher" visible à côté du champ de recherche (avant, seul Enter fonctionnait)
+- **Fix 2a — Pipeline PUT** : Suppression des anciens PipelineStage avant d'en créer un nouveau (évite l'accumulation de doublons dans la DB)
+- **Fix 2b — Pipeline PATCH** : Nouveau endpoint PATCH /api/pipeline pour mettre à jour les notes d'une étape de pipeline
+- **Fix 3 — NewsTab premium redesign** : Réécriture complète du composant avec :
+  - Favoris persistants via localStorage (survivent au rechargement)
+  - Section Alertes avec CRUD complet (créer, lister, activer/désactiver, supprimer)
+  - Design premium : barre de couleur catégorie, badge Premium/Source, animations d'entrée
+  - 132 articles chargés depuis ZAI web search + RSS + demo data
+  - 7 catégories : Deals clos (12), En cours (16), Marché (11), Réglementaire, Tech & Digital (8), LBO & PE (2), Sectoriel
+- Build : ✅ 28/28 pages compilées, 0 erreurs TypeScript
+- Tests fonctionnels : Recherche Dataiku ✅, Pipeline kanban ✅, Actualités 132 articles ✅, Alertes CRUD ✅
+- 7 screenshots de vérification capturés
+
+Stage Summary:
+- Recherche : bouton visible + résultats API Gouv fonctionnels (Dataiku, Datarocks trouvés)
+- Pipeline : 7 colonnes (Identifiées → A contacter → Contactées → Qualifiées → Opportunité → Deal → Annulé), 10 entreprises
+- Actualités & Alertes : 132 articles, 7 catégories, alertes CRUD, favoris persistants, design premium
+- Backend structuré : rate limiting, CSRF, sanitisation, workspace isolation sur tous les endpoints

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { movePipelineSchema } from '@/validators';
-import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
+import { validateCsrf, safeErrorResponse, isValidId, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 
 // GET /api/pipeline
 export async function GET(request: NextRequest) {
@@ -89,6 +89,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Entreprise introuvable' }, { status: 404 });
     }
 
+    // Delete old stages for this company to avoid duplication
+    await db.pipelineStage.deleteMany({
+      where: { companyId },
+    });
+
     const pipelineStage = await db.pipelineStage.create({
       data: {
         companyId,
@@ -107,5 +112,48 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Error updating pipeline:', error);
     return safeErrorResponse('Échec de la mise à jour du pipeline', 500);
+  }
+}
+
+// PATCH /api/pipeline — update pipeline stage notes
+export async function PATCH(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  if (!validateCsrf(request)) {
+    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
+  }
+
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp, 30, 60 * 1000)) {
+    return rateLimitedResponse();
+  }
+
+  try {
+    const body = await request.json();
+    const { stageId, notes } = body;
+
+    if (!stageId || !isValidId(stageId)) {
+      return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+    }
+
+    // Verify the pipeline stage exists and belongs to user's workspace
+    const stage = await db.pipelineStage.findFirst({
+      where: { id: stageId, company: { workspaceId: authResult.workspaceId } },
+    });
+
+    if (!stage) {
+      return NextResponse.json({ error: 'Étape introuvable' }, { status: 404 });
+    }
+
+    const updated = await db.pipelineStage.update({
+      where: { id: stageId },
+      data: { notes: sanitizeInput(notes || '', 5000) },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error('Error updating pipeline notes:', error);
+    return safeErrorResponse('Échec de la mise à jour', 500);
   }
 }
