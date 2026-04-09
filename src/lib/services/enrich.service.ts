@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { getInfoGreffeBySiren, parseInfoGreffeFinancial } from '@/lib/api';
 import type { InfoGreffeRecord } from '@/lib/types';
 import { isValidCuid } from '@/validators';
+import { getEffectifFromTranche, getRegionName } from '@/lib/utils';
 
 // ── Batch enrich cooldown ──────────────────────────────────────
 export const MAX_BATCH_SIZE = 10;
@@ -63,14 +64,14 @@ export async function enrichCompany(id: string, workspaceId?: string): Promise<{
     apiGouv: gouvResult ? {
       nomComplet: gouvResult.nom_complet,
       sigle: gouvResult.sigle,
-      sectionActivites: gouvResult.section_activites_principales,
+      sectionActivites: gouvResult.section_activite_principale,
+      activitePrincipale: gouvResult.activite_principale,
       nombreEtablissements: gouvResult.nombre_etablissements,
-      nombreEtablissementsOuvert: gouvResult.nombre_etablissements_ouvert,
+      nombreEtablissementsOuvert: gouvResult.nombre_etablissements_ouverts,
+      etatAdministratif: gouvResult.etat_administratif,
       dirigeants: gouvResult.dirigeants,
-      ca: gouvResult.ca,
-      resultatNet: gouvResult.resultat_net,
-      coordonnees: gouvResult.coordonnees,
-      geoAdresse: gouvResult.geo_adresse,
+      finances: gouvResult.finances,
+      siege: gouvResult.siege,
       matchingEtablissements: gouvResult.matching_etablissements,
       sourceApi: 'api-gouv',
     } : null,
@@ -112,21 +113,36 @@ export async function enrichCompany(id: string, workspaceId?: string): Promise<{
 
   // Mettre à jour les champs structurés depuis API Gouv
   if (gouvResult) {
+    const siege = gouvResult.siege;
     if (gouvResult.nom_raison_sociale) updateData.name = gouvResult.nom_raison_sociale;
     if (gouvResult.nom_complet) updateData.legalName = gouvResult.nom_complet;
-    if (gouvResult.section_activites_principales) updateData.sector = gouvResult.section_activites_principales;
-    if (gouvResult.naf) updateData.nafCode = gouvResult.naf;
-    if (gouvResult.libelle_naf) updateData.nafLabel = gouvResult.libelle_naf;
-    if (gouvResult.libelle_commune) updateData.city = gouvResult.libelle_commune;
-    if (gouvResult.code_postal) updateData.postalCode = gouvResult.code_postal;
-    if (gouvResult.region) updateData.region = gouvResult.region;
-    if (gouvResult.geo_adresse) updateData.address = gouvResult.geo_adresse;
+    if (gouvResult.section_activite_principale) updateData.sector = gouvResult.section_activite_principale;
+    if (gouvResult.activite_principale) updateData.nafCode = gouvResult.activite_principale;
+    if (siege?.libelle_commune) updateData.city = siege.libelle_commune;
+    if (siege?.code_postal) updateData.postalCode = siege.code_postal;
+    if (siege?.region) updateData.region = siege.region;
+    if (siege?.geo_adresse) updateData.address = siege.geo_adresse;
     if (gouvResult.nature_juridique) updateData.natureJuridique = gouvResult.nature_juridique;
     if (gouvResult.categorie_entreprise) updateData.categorieEntreprise = gouvResult.categorie_entreprise;
-    if (gouvResult.ca != null) updateData.revenue = gouvResult.ca;
-    if (gouvResult.nombre_etablissements_ouvert != null) updateData.employeeCount = gouvResult.nombre_etablissements_ouvert;
-    if (gouvResult.coordonnees?.lat) updateData.latitude = parseFloat(gouvResult.coordonnees.lat);
-    if (gouvResult.coordonnees?.lon) updateData.longitude = parseFloat(gouvResult.coordonnees.lon);
+    if (gouvResult.finances && typeof gouvResult.finances === 'object') {
+      const years = Object.keys(gouvResult.finances).sort().reverse();
+      for (const year of years) {
+        if (gouvResult.finances[year]?.ca != null) {
+          updateData.revenue = gouvResult.finances[year].ca;
+          break;
+        }
+      }
+    }
+    const effectifNumber = getEffectifFromTranche(gouvResult.tranche_effectif_salarie);
+    if (effectifNumber != null) {
+      updateData.employeeCount = effectifNumber;
+    }
+    if (siege?.latitude) updateData.latitude = Number(siege.latitude);
+    if (siege?.longitude) updateData.longitude = Number(siege.longitude);
+    if (gouvResult.etat_administratif) {
+      updateData.statutEntreprise = gouvResult.etat_administratif === 'A' ? 'Active' : 'Cessée';
+    }
+    if (gouvResult.date_creation) updateData.dateImmatriculation = gouvResult.date_creation;
   }
 
   // Mettre à jour les champs enrichis depuis InfoGreffe

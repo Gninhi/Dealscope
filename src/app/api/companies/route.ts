@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { createCompanySchema } from '@/validators';
-import { patchCompanySchema, ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
-import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, isValidId, sanitizeInput } from '@/lib/security';
+import { createCompanySchema, updateCompanySchema, isAllowedUpdateField, ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
+import { performSecurityChecks, createErrorResponse } from '@/lib/security/core/security-check';
+import { sanitizeString, sanitizeId } from '@/lib/security/core/sanitizer';
+import { logCrudOperation } from '@/lib/security/core/audit-logger';
 
-// GET /api/companies - list all companies with relations (paginated)
 export async function GET(request: NextRequest) {
+  const securityCheck = await performSecurityChecks(request);
+  if (!securityCheck.passed) return securityCheck.response!;
+
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
-
-  // Rate limit GET requests
-  const clientIp = getClientIp(request);
-  if (isRateLimited(clientIp, 60, 60 * 1000)) {
-    return rateLimitedResponse();
-  }
 
   try {
     const { searchParams } = new URL(request.url);
@@ -31,42 +28,26 @@ export async function GET(request: NextRequest) {
         include: {
           signals: true,
           contacts: true,
-          pipelineStages: {
-            orderBy: { movedAt: 'desc' },
-            take: 1,
-          },
-          icpProfile: {
-            select: { id: true, name: true },
-          },
+          pipelineStages: { orderBy: { movedAt: 'desc' }, take: 1 },
+          icpProfile: { select: { id: true, name: true } },
         },
       }),
-      db.targetCompany.count({
-        where: { workspaceId: authResult.workspaceId },
-      }),
+      db.targetCompany.count({ where: { workspaceId: authResult.workspaceId } }),
     ]);
 
     return NextResponse.json({ companies, total, page, limit });
   } catch (error) {
     console.error('Error fetching companies:', error);
-    return safeErrorResponse('Échec du chargement des entreprises', 500);
+    return createErrorResponse('Échec du chargement des entreprises', 500);
   }
 }
 
-// POST /api/companies - add a company
 export async function POST(request: NextRequest) {
+  const securityCheck = await performSecurityChecks(request, { requireCsrf: true, rateLimit: { maxRequests: 20, windowMs: 60000 } });
+  if (!securityCheck.passed) return securityCheck.response!;
+
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
-
-  // CSRF protection
-  if (!validateCsrf(request)) {
-    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
-  }
-
-  // Rate limit mutations
-  const clientIp = getClientIp(request);
-  if (isRateLimited(clientIp, 20, 60 * 1000)) {
-    return rateLimitedResponse();
-  }
 
   try {
     const body = await request.json();
@@ -75,52 +56,43 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message || 'Données invalides' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const { siren, name } = parsed.data;
-
-    // Use authenticated user's workspace for consistent isolation
     const workspaceId = authResult.workspaceId;
 
-    // Check SIREN uniqueness within workspace
     const existing = await db.targetCompany.findFirst({ where: { siren, workspaceId } });
     if (existing) {
       return NextResponse.json(
         { error: 'Cette entreprise existe déjà dans votre workspace' },
-        { status: 409 },
+        { status: 409 }
       );
     }
-
-    // Determine initial status
-    const status = 'identifiees';
 
     const company = await db.targetCompany.create({
       data: {
         workspaceId,
-        siren,
-        name: sanitizeInput(name, 500),
-        legalName: sanitizeInput(parsed.data.legalName || name, 500),
-        sector: sanitizeInput(parsed.data.sector || '', 100),
-        nafCode: sanitizeInput(parsed.data.nafCode || '', 20),
+        siren: sanitizeString(siren, { maxLength: 9 }),
+        name: sanitizeString(name, { maxLength: 500 }),
+        legalName: sanitizeString(parsed.data.legalName || name, { maxLength: 500 }),
+        sector: sanitizeString(parsed.data.sector || '', { maxLength: 100 }),
+        nafCode: sanitizeString(parsed.data.nafCode || '', { maxLength: 20 }),
         revenue: parsed.data.revenue != null ? Number(parsed.data.revenue) : null,
         employeeCount: parsed.data.employeeCount != null ? Number(parsed.data.employeeCount) : null,
-        city: sanitizeInput(parsed.data.city || '', 200),
-        postalCode: sanitizeInput(parsed.data.postalCode || '', 20),
-        region: sanitizeInput(parsed.data.region || '', 200),
-        address: sanitizeInput(parsed.data.address || '', 500),
+        city: sanitizeString(parsed.data.city || '', { maxLength: 200 }),
+        postalCode: sanitizeString(parsed.data.postalCode || '', { maxLength: 20 }),
+        region: sanitizeString(parsed.data.region || '', { maxLength: 200 }),
+        address: sanitizeString(parsed.data.address || '', { maxLength: 500 }),
         latitude: parsed.data.latitude != null ? Number(parsed.data.latitude) : null,
         longitude: parsed.data.longitude != null ? Number(parsed.data.longitude) : null,
         icpScore: parsed.data.icpScore != null ? Number(parsed.data.icpScore) : null,
-        source: sanitizeInput(parsed.data.source || 'manual', 50),
-        status,
-        notes: sanitizeInput(parsed.data.notes || '', 50000),
+        source: sanitizeString(parsed.data.source || 'manual', { maxLength: 50 }),
+        status: 'identifiees',
+        notes: sanitizeString(parsed.data.notes || '', { maxLength: 50000 }),
         pipelineStages: {
-          create: {
-            stage: status,
-            movedAt: new Date(),
-          },
+          create: { stage: 'identifiees', movedAt: new Date() },
         },
       },
       include: {
@@ -131,13 +103,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Enrichissement asynchrone en arrière-plan
-    // Use internal auth header to authenticate the background fetch
-    const authHeader = request.headers.get('authorization');
+    logCrudOperation('create', authResult.id, authResult.workspaceId, securityCheck.ip, 'company', company.id, true);
+
     const reqUrl = new URL(request.url);
     const enrichBaseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
     fetch(`${enrichBaseUrl}/api/companies/enrich?id=${company.id}`, {
-      headers: authHeader ? { 'Authorization': authHeader } : {},
+      headers: request.headers.get('authorization') ? { 'Authorization': request.headers.get('authorization')! } : {},
       signal: AbortSignal.timeout(30000),
     }).catch(() => {
       console.warn('Background enrichment failed for company:', company.siren);
@@ -146,120 +117,102 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(company, { status: 201 });
   } catch (error) {
     console.error('Error creating company:', error);
-    return safeErrorResponse('Échec de la création de l\'entreprise', 500);
+    return createErrorResponse('Échec de la création de l\'entreprise', 500);
   }
 }
 
-// DELETE /api/companies - delete a company
 export async function DELETE(request: NextRequest) {
+  const securityCheck = await performSecurityChecks(request, { requireCsrf: true, rateLimit: { maxRequests: 30, windowMs: 60000 } });
+  if (!securityCheck.passed) return securityCheck.response!;
+
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
-
-  // CSRF protection
-  if (!validateCsrf(request)) {
-    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
-  }
-
-  // Rate limit mutations
-  const clientIp = getClientIp(request);
-  if (isRateLimited(clientIp, 30, 60 * 1000)) {
-    return rateLimitedResponse();
-  }
 
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id || !isValidId(id)) {
+    const validId = sanitizeId(id || '');
+
+    if (!validId) {
       return NextResponse.json({ error: 'Company ID invalide' }, { status: 400 });
     }
 
-    // Verify workspace ownership before delete
-    const company = await db.targetCompany.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    const company = await db.targetCompany.findFirst({ where: { id: validId, workspaceId: authResult.workspaceId } });
     if (!company) {
       return NextResponse.json({ error: 'Entreprise introuvable' }, { status: 404 });
     }
 
     await db.$transaction(async (tx) => {
-      await tx.pipelineStage.deleteMany({ where: { companyId: id } });
-      await tx.companySignal.deleteMany({ where: { companyId: id } });
-      await tx.contact.deleteMany({ where: { companyId: id } });
-      await tx.targetCompany.delete({ where: { id } });
+      await tx.pipelineStage.deleteMany({ where: { companyId: validId } });
+      await tx.companySignal.deleteMany({ where: { companyId: validId } });
+      await tx.contact.deleteMany({ where: { companyId: validId } });
+      await tx.targetCompany.delete({ where: { id: validId } });
     });
+
+    logCrudOperation('delete', authResult.id, authResult.workspaceId, securityCheck.ip, 'company', validId, true);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting company:', error);
-    return safeErrorResponse('Échec de la suppression de l\'entreprise', 500);
+    return createErrorResponse('Échec de la suppression de l\'entreprise', 500);
   }
 }
 
-// PATCH /api/companies - update company notes/status (strict whitelist)
 export async function PATCH(request: NextRequest) {
+  const securityCheck = await performSecurityChecks(request, { requireCsrf: true, rateLimit: { maxRequests: 30, windowMs: 60000 } });
+  if (!securityCheck.passed) return securityCheck.response!;
+
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
-  // CSRF protection
-  if (!validateCsrf(request)) {
-    return NextResponse.json({ error: 'Token CSRF invalide' }, { status: 403 });
-  }
-
-  // Rate limit mutations
-  const clientIp = getClientIp(request);
-  if (isRateLimited(clientIp, 30, 60 * 1000)) {
-    return rateLimitedResponse();
-  }
-
   try {
     const body = await request.json();
-    const parsed = patchCompanySchema.safeParse(body);
+    const parsed = updateCompanySchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message || 'Données invalides' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const { id } = parsed.data;
+    const validId = sanitizeId(id);
 
-    if (!isValidId(id)) {
+    if (!validId) {
       return NextResponse.json({ error: 'Company ID invalide' }, { status: 400 });
     }
 
-    // Build update data from ONLY validated & whitelisted fields
-    const updateData: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(parsed.data)) {
-      if (key !== 'id' && ALLOWED_COMPANY_UPDATE_FIELDS.has(key) && value !== undefined) {
-        // Sanitize string fields
-        if (typeof value === 'string') {
-          updateData[key] = sanitizeInput(value, key === 'notes' ? 50000 : 200);
-        } else {
-          updateData[key] = value;
-        }
+  const updateData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (key !== 'id' && isAllowedUpdateField(key) && value !== undefined) {
+      if (typeof value === 'string') {
+        updateData[key] = sanitizeString(value, { maxLength: key === 'notes' ? 50000 : 200 });
+      } else {
+        updateData[key] = value;
       }
     }
+  }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: 'Aucun champ valide à mettre à jour' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 });
     }
 
-    // Verify workspace ownership before update
-    const existing = await db.targetCompany.findFirst({ where: { id, workspaceId: authResult.workspaceId } });
+    const existing = await db.targetCompany.findFirst({ where: { id: validId, workspaceId: authResult.workspaceId } });
     if (!existing) {
       return NextResponse.json({ error: 'Entreprise introuvable' }, { status: 404 });
     }
 
     const company = await db.targetCompany.update({
-      where: { id },
+      where: { id: validId },
       data: updateData,
     });
+
+    logCrudOperation('update', authResult.id, authResult.workspaceId, securityCheck.ip, 'company', validId, true);
 
     return NextResponse.json(company);
   } catch (error) {
     console.error('Error updating company:', error);
-    return safeErrorResponse('Échec de la mise à jour', 500);
+    return createErrorResponse('Échec de la mise à jour', 500);
   }
 }

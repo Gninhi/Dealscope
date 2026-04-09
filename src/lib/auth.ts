@@ -2,18 +2,22 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { db } from './db';
 import { verifyPassword } from './password';
-import { isRateLimited } from './security';
+import { isRateLimited } from './security/core/rate-limiter';
+import { logAuthSuccess, logAuthFailure, logAuthLocked } from './security/core/audit-logger';
+import { SECURITY_CONSTANTS } from './security/core/constants';
 
-// Track failed login attempts per email for account lockout
-const failedAttempts = new Map<string, { count: number; lockedUntil: number }>();
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+interface FailedAttempt {
+  count: number;
+  lockedUntil: number;
+}
 
-// Lazy cleanup — only starts when first authorize() is called
+const failedAttempts = new Map<string, FailedAttempt>();
 let cleanupStarted = false;
-function scheduleLockoutCleanup() {
+
+function scheduleLockoutCleanup(): void {
   if (cleanupStarted) return;
   cleanupStarted = true;
+
   if (typeof setInterval === 'function') {
     setInterval(() => {
       const now = Date.now();
@@ -26,6 +30,32 @@ function scheduleLockoutCleanup() {
   }
 }
 
+function recordFailedAttempt(email: string): void {
+  scheduleLockoutCleanup();
+
+  const now = Date.now();
+  const existing = failedAttempts.get(email);
+
+  if (!existing) {
+    failedAttempts.set(email, { count: 1, lockedUntil: 0 });
+    return;
+  }
+
+  existing.count++;
+
+  if (existing.count >= SECURITY_CONSTANTS.PASSWORD.MAX_FAILED_ATTEMPTS) {
+    const backoffMinutes = Math.min(
+      15 * Math.pow(2, Math.min(existing.count - SECURITY_CONSTANTS.PASSWORD.MAX_FAILED_ATTEMPTS, 4)),
+      SECURITY_CONSTANTS.PASSWORD.MAX_LOCKOUT_MINUTES
+    );
+    existing.lockedUntil = now + backoffMinutes * 60 * 1000;
+  }
+}
+
+function clearFailedAttempts(email: string): void {
+  failedAttempts.delete(email);
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
@@ -34,7 +64,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Mot de passe', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         scheduleLockoutCleanup();
 
         if (!credentials?.email || !credentials?.password) {
@@ -42,16 +72,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const email = (credentials.email as string).toLowerCase().trim();
+        const ip = request?.headers?.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 
-        // Check if account is locked
         const attempts = failedAttempts.get(email);
         if (attempts && attempts.lockedUntil > Date.now()) {
+          logAuthLocked(email, ip, 'login');
           return null;
         }
 
-        // Brute-force protection
-        const clientIp = 'credential:' + email;
-        if (isRateLimited(clientIp, 10, 5 * 60 * 1000)) {
+        const rateLimitKey = `auth:${email}`;
+        if (isRateLimited(rateLimitKey, 10, 5 * 60 * 1000)) {
+          logAuthFailure(ip, 'login', 'Rate limited');
           return null;
         }
 
@@ -62,21 +93,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!user || !user.password) {
           recordFailedAttempt(email);
+          logAuthFailure(ip, 'login', 'User not found');
           return null;
         }
 
         const isValid = await verifyPassword(
           credentials.password as string,
-          user.password,
+          user.password
         );
 
         if (!isValid) {
           recordFailedAttempt(email);
+          logAuthFailure(ip, 'login', 'Invalid password', { userId: user.id });
           return null;
         }
 
-        // Successful login — clear failed attempts
-        failedAttempts.delete(email);
+        clearFailedAttempts(email);
+        logAuthSuccess(user.id, ip, 'login');
 
         return {
           id: user.id,
@@ -133,9 +166,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
         token.email = user.email;
-        token.role = (user as Record<string, unknown>).role as string;
-        token.workspaceId = (user as Record<string, unknown>).workspaceId as string;
-        token.workspaceSlug = (user as Record<string, unknown>).workspaceSlug as string;
+        token.role = (user as unknown as Record<string, unknown>).role as string;
+        token.workspaceId = (user as unknown as Record<string, unknown>).workspaceId as string;
+        token.workspaceSlug = (user as unknown as Record<string, unknown>).workspaceSlug as string;
         token.iat = Math.floor(Date.now() / 1000);
       }
       return token;
@@ -143,7 +176,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        // NextAuth User type doesn't include our custom fields — use cast
         (session.user as unknown as Record<string, unknown>).role = token.role;
         (session.user as unknown as Record<string, unknown>).workspaceId = token.workspaceId;
         (session.user as unknown as Record<string, unknown>).workspaceSlug = token.workspaceSlug;
@@ -151,26 +183,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 });
-
-/**
- * Record a failed login attempt and potentially lock the account.
- */
-function recordFailedAttempt(email: string): void {
-  const now = Date.now();
-  const existing = failedAttempts.get(email);
-
-  if (!existing) {
-    failedAttempts.set(email, { count: 1, lockedUntil: 0 });
-  } else {
-    existing.count++;
-    if (existing.count >= MAX_FAILED_ATTEMPTS) {
-      const backoffMinutes = Math.min(
-        15 * Math.pow(2, Math.min(existing.count - MAX_FAILED_ATTEMPTS, 4)),
-        240,
-      );
-      existing.lockedUntil = now + backoffMinutes * 60 * 1000;
-    }
-  }
-}

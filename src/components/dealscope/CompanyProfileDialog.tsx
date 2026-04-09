@@ -8,7 +8,7 @@ import {
   Landmark, Activity, Clock, FileText, Database, RefreshCw,
   CheckCircle2, ArrowUpRight, Tag, Check, Trash2
 } from 'lucide-react';
-import { formatCurrency, formatNumber, formatDate, getScoreColor, getScoreLabel, getStageLabel, getStageColor, getStatutBadgeClass, getStatutLabel } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatDate, getScoreColor, getScoreLabel, getStageLabel, getStageColor, getStatutBadgeClass, getStatutLabel, getRegionName, formatSource } from '@/lib/utils';
 import type { CompanyWithRelations } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 import { apiFetch } from '@/lib/api-client';
@@ -209,7 +209,20 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
   const trancheCA = company?.trancheCA || sr?.trancheCA || '';
   const dateClotureExercice = company?.dateClotureExercice || sr?.dateClotureExercice || '';
   const isEnriched = company?.isEnriched || false;
-  const directors = enrichedData?.apiGouv?.dirigeants || sr?.directors || [];
+  
+  const directors = useMemo(() => {
+    let list = enrichedData?.apiGouv?.dirigeants || sr?.directors || [];
+    return [...list].sort((a: any, b: any) => {
+      const aRole = (a.qualite || a.fonction || a.type_dirigeant || '').toLowerCase();
+      const bRole = (b.qualite || b.fonction || b.type_dirigeant || '').toLowerCase();
+      const aLeader = aRole.includes('président') || aRole.includes('president') || aRole.includes('directeur');
+      const bLeader = bRole.includes('président') || bRole.includes('president') || bRole.includes('directeur');
+      if (aLeader && !bLeader) return -1;
+      if (!aLeader && bLeader) return 1;
+      return 0;
+    });
+  }, [enrichedData, sr]);
+
   const caHistoryFromDb = enrichedData?.financial?.caHistory || [];
   const caHistory = caHistoryFromDb.length > 0 ? caHistoryFromDb : (sr?.caHistory || []);
   const etablissements = enrichedData?.apiGouv?.matchingEtablissements || [];
@@ -362,9 +375,9 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
               {/* Bandeau KPI */}
               <div className="grid grid-cols-4 gap-3">
                 <KPICard icon={<TrendingUp className="w-4 h-4" />} label="CA" value={formatCurrency(revenue)} color="text-emerald-400" />
-                <KPICard icon={<Users className="w-4 h-4" />} label="Effectifs" value={formatNumber(employeeCount)} color="text-blue-400" />
+                <KPICard icon={<Users className="w-4 h-4" />} label="Effectifs" value={employeeCount ? formatNumber(employeeCount) : '—'} color="text-blue-400" />
                 <KPICard icon={<Target className="w-4 h-4" />} label="Étape" value={status ? getStageLabel(status) : '—'} color="text-violet-400" />
-                <KPICard icon={<Globe className="w-4 h-4" />} label="Source" value={source} color="text-amber-400" />
+                <KPICard icon={<Globe className="w-4 h-4" />} label="Source" value={formatSource(source)} color="text-amber-400" />
               </div>
 
               {/* Détails de l'entreprise */}
@@ -379,7 +392,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                   {categorieEntreprise && <DetailRow label="Catégorie" value={categorieEntreprise} />}
                   {natureJuridique && <DetailRow label="Nature juridique" value={natureJuridique} />}
                   {(city || postalCode) && <DetailRow label="Ville" value={`${city} ${postalCode}`.trim()} />}
-                  {region && <DetailRow label="Région" value={region} />}
+                  {region && <DetailRow label="Région" value={getRegionName(region)} />}
                   {statutEntreprise && (
                     <DetailRow
                       label="Statut"
@@ -669,14 +682,17 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                     Dirigeants ({directors.length})
                   </h3>
                   <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-                    {directors.map((d: any, i: number) => (
+                    {directors.map((d: any, i: number) => {
+                      const prenom = d.prenoms || d.prenom;
+                      const role = d.qualite || d.fonction || d.type_dirigeant;
+                      return (
                       <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-card/50">
                         <div className="w-9 h-9 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-xs font-bold border border-indigo-500/20">
-                          {(d.prenom?.[0] || '')}{(d.nom?.[0] || '')}
+                          {(prenom?.[0] || '')}{(d.nom?.[0] || '')}
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-foreground">{d.prenom} {d.nom}</p>
-                          {d.fonction && <p className="text-xs text-muted-foreground">{d.fonction}</p>}
+                          <p className="text-sm font-medium text-foreground">{prenom} {d.nom}</p>
+                          {role && <p className="text-xs text-muted-foreground">{role}</p>}
                         </div>
                         {d.date_naissance && (
                           <div className="text-right">
@@ -687,7 +703,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                           </div>
                         )}
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </div>
               )}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { z } from 'zod';
 import { isRateLimited, getClientIp, rateLimitedResponse, generateCsrfToken, safeErrorResponse } from '@/lib/security';
+import { sendResetPasswordEmail, isEmailConfigured } from '@/lib/email';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Email invalide').max(254).toLowerCase().trim(),
@@ -47,9 +48,21 @@ export async function POST(request: NextRequest) {
       data: { resetToken, resetTokenExpiry },
     });
 
-    // TODO: Send reset email via an email service (e.g., Resend, SendGrid, Nodemailer).
-    // Currently the token is stored in DB but no email is sent.
-    // The user will not receive a reset link until email integration is configured.
+    if (isEmailConfigured()) {
+      const emailSent = await sendResetPasswordEmail({
+        email: user.email,
+        resetToken,
+        firstName: user.firstName || undefined,
+      });
+
+      if (!emailSent) {
+        console.error('[ForgotPassword] Failed to send email to:', user.email);
+      }
+    } else {
+      console.warn('[ForgotPassword] Email not configured - token stored but not sent');
+      console.log('[ForgotPassword] Reset token for', user.email, ':', resetToken);
+      console.log('[ForgotPassword] Reset URL:', `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`);
+    }
 
     return NextResponse.json({
       success: true,

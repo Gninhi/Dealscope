@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
+import { SECURITY_CONSTANTS } from './security/core/constants';
 
-const SALT_ROUNDS = 12;
+const SALT_ROUNDS = SECURITY_CONSTANTS.PASSWORD.SALT_ROUNDS;
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);

@@ -1,8 +1,4 @@
-// ─── Services Barrel Export ──────────────────────────────────────
-// Centralized export for all service modules.
-
 export {
-  // News service
   fetchNews,
   getDemoNews,
   CATEGORIES as NEWS_CATEGORIES,
@@ -18,7 +14,6 @@ export {
 } from './news.service';
 
 export {
-  // Enrich service
   enrichCompany,
   batchEnrich,
   checkBatchCooldown,
@@ -29,14 +24,12 @@ export {
 } from './enrich.service';
 
 export {
-  // Scan service
   executeScan,
   type ScanInput,
   type ScanResult,
 } from './scan.service';
 
 export {
-  // Company service
   parseSearchFilters,
   hasSearchParams,
   ALLOWED_COMPANY_UPDATE_FIELDS as COMPANY_ALLOWED_UPDATE_FIELDS,

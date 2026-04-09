@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
-import { z } from 'zod';
-import { isRateLimited, getClientIp, rateLimitedResponse, sanitizeInput, safeErrorResponse } from '@/lib/security';
+import { performSecurityChecks, createErrorResponse } from '@/lib/security/core/security-check';
 import { getWorkspace } from '@/lib/workspace';
-import { passwordSchema } from '@/lib/validators';
+import { sanitizeString, sanitizeEmail } from '@/lib/security/core/sanitizer';
+import { logCrudOperation, logAuthSuccess } from '@/lib/security/core/audit-logger';
+import { emailSchema, securePasswordSchema, nameSchema } from '@/lib/validators/schemas';
+import { z } from 'zod';
 
 const registerSchema = z.object({
-  email: z.string().email('Email invalide').max(254).toLowerCase().trim(),
-  password: passwordSchema,
-  firstName: z.string().min(1, 'Le prénom est requis').max(100).trim(),
-  lastName: z.string().min(1, 'Le nom est requis').max(100).trim(),
+  email: emailSchema,
+  password: securePasswordSchema,
+  firstName: nameSchema,
+  lastName: nameSchema,
 });
 
 export async function POST(request: NextRequest) {
-  // Rate limiting: 5 req/min per IP
-  const clientIp = getClientIp(request);
-  if (isRateLimited(clientIp, 5, 60 * 1000)) {
-    return rateLimitedResponse();
-  }
+  const securityCheck = await performSecurityChecks(request, {
+    requireCsrf: true,
+    rateLimit: { maxRequests: 5, windowMs: 60000 },
+  });
+
+  if (!securityCheck.passed) return securityCheck.response!;
 
   try {
     const body = await request.json();
@@ -27,46 +30,50 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message || 'Données invalides' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const { email, password, firstName, lastName } = parsed.data;
+    const sanitizedEmail = sanitizeEmail(email);
 
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({ where: { email } });
+    const existingUser = await db.user.findUnique({ where: { email: sanitizedEmail } });
     if (existingUser) {
       return NextResponse.json(
         { error: 'Un compte avec cet email existe déjà' },
-        { status: 409 },
+        { status: 409 }
       );
     }
 
-    const { user } = await db.$transaction(async (tx) => {
-      const workspace = await getWorkspace();
+    const workspace = await getWorkspace();
+    const hashedPassword = await hashPassword(password);
 
-      // Hash password and create user
-      const hashedPassword = await hashPassword(password);
-      const user = await tx.user.create({
+    const user = await db.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
         data: {
-          email,
+          email: sanitizedEmail,
           password: hashedPassword,
-          firstName: sanitizeInput(firstName, 100),
-          lastName: sanitizeInput(lastName, 100),
+          firstName: sanitizeString(firstName, { maxLength: 100 }),
+          lastName: sanitizeString(lastName, { maxLength: 100 }),
           role: 'member',
           workspaceId: workspace.id,
         },
       });
 
-      // Update AppSetting if this is the first user
       await tx.appSetting.upsert({
         where: { id: 'app' },
         update: {},
         create: { id: 'app', isFirstSetup: false },
       });
 
-      return { user };
+      return newUser;
+    }, {
+      maxWait: 10000,
+      timeout: 15000,
     });
+
+    logAuthSuccess(user.id, securityCheck.ip, 'register');
+    logCrudOperation('create', user.id, workspace.id, securityCheck.ip, 'user', user.id, true);
 
     return NextResponse.json(
       {
@@ -79,10 +86,10 @@ export async function POST(request: NextRequest) {
           role: user.role,
         },
       },
-      { status: 201 },
+      { status: 201 }
     );
   } catch (error) {
     console.error('Registration error:', error);
-    return safeErrorResponse('Échec de la création du compte', 500);
+    return createErrorResponse('Échec de la création du compte', 500);
   }
 }

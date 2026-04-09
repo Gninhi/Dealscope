@@ -135,14 +135,30 @@ export async function GET(request: NextRequest) {
 
   try {
     const workspaceId = authResult.workspaceId;
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '100', 10) || 100), 200);
+    const before = searchParams.get('before');
+
+    const where = { 
+      workspaceId,
+      ...(before ? { createdAt: { lt: new Date(before) } } : {})
+    };
 
     const messages = await db.chatMessage.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
     });
 
-    return NextResponse.json({ messages, suggestedPrompts: SUGGESTED_PROMPTS });
+    const hasMore = messages.length === limit;
+    const nextCursor = messages.length > 0 ? messages[messages.length - 1].createdAt.toISOString() : null;
+
+    return NextResponse.json({ 
+      messages: messages.reverse(), 
+      suggestedPrompts: SUGGESTED_PROMPTS,
+      hasMore,
+      nextCursor,
+    });
   } catch (error) {
     console.error('Error fetching chat history:', error);
     return safeErrorResponse('Échec du chargement de l\'historique', 500);

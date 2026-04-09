@@ -6,19 +6,34 @@ export interface CompanySearchResult {
   nom_raison_sociale: string;
   sigle?: string;
   nom_complet?: string;
-  nombre_etablissements_ouvert?: number;
+  nombre_etablissements_ouverts?: number;
   nombre_etablissements?: number;
-  section_activites_principales?: string;
+  // Champs au niveau racine (structure réelle API Gouv)
+  activite_principale?: string;
+  section_activite_principale?: string;
   categorie_entreprise?: string;
   nature_juridique?: string;
-  naf?: string;
-  libelle_naf?: string;
-  code_postal?: string;
-  libelle_commune?: string;
-  departement?: string;
-  region?: string;
-  geo_adresse?: string;
-  coordonnees?: { lat: string; lon: string };
+  etat_administratif?: string;
+  tranche_effectif_salarie?: string;
+  date_creation?: string;
+  date_fermeture?: string;
+  // Données financières (API Gouv v2)
+  finances?: Record<string, { ca?: number; resultat_net?: number }> | null;
+  // Siège social — la localisation est imbriquée ici
+  siege?: {
+    siret?: string;
+    code_postal?: string;
+    libelle_commune?: string;
+    departement?: string;
+    region?: string;
+    geo_adresse?: string;
+    adresse?: string;
+    commune?: string;
+    latitude?: number;
+    longitude?: number;
+    activite_principale?: string;
+    tranche_effectif_salarie?: string;
+  };
   dirigeants?: Array<{
     nom: string;
     prenom: string;
@@ -32,6 +47,7 @@ export interface CompanySearchResult {
     code_postal?: string;
     libelle_commune?: string;
   }>;
+  // Champs legacy conservés pour compatibilité arrière
   ca?: number | null;
   resultat_net?: number | null;
 }

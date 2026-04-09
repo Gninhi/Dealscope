@@ -2,64 +2,97 @@ import type { CompanySearchResult, SearchFilters } from './types';
 
 const API_GOUV_BASE = 'https://recherche-entreprises.api.gouv.fr/search';
 
+/**
+ * Map le statut interne vers la valeur API Gouv etat_administratif.
+ * API Gouv: "A" = Active, "C" = Cessée
+ */
+function mapStatutToEtatAdministratif(statut: string): string | null {
+  switch (statut) {
+    case 'active': return 'A';
+    case 'cessee':
+    case 'radiee': return 'C';
+    default: return null;
+  }
+}
+
 export async function searchApiGouv(filters: SearchFilters): Promise<CompanySearchResult[]> {
   const params: Record<string, string> = {
-    per_page: filters.limit ? String(filters.limit) : '20',
+    per_page: filters.limit ? String(Math.min(filters.limit, 25)) : '25',
     page: String(filters.page || 1),
   };
 
+  // Texte libre => paramètre q
   if (filters.query) {
     params.q = filters.query;
   }
 
-  // Build conditions for advanced filters
-  const conditions: string[] = [];
-
+  // ─── Filtres de localisation (paramètres dédiés) ──────────────
   if (filters.departement) {
-    conditions.push(`departement:"${filters.departement}"`);
+    params.departement = filters.departement;
   }
   if (filters.codePostal) {
-    conditions.push(`code_postal:"${filters.codePostal}"`);
+    params.code_postal = filters.codePostal;
   }
   if (filters.commune) {
-    conditions.push(`commune:"${filters.commune}"`);
+    params.code_commune = filters.commune;
   }
   if (filters.region) {
-    conditions.push(`region:"${filters.region}"`);
+    params.region = filters.region;
   }
+
+  // ─── Filtres secteur / activité ───────────────────────────────
   if (filters.sectionNaf) {
-    conditions.push(`section_activites_principales:"${filters.sectionNaf}"`);
+    params.section_activite_principale = filters.sectionNaf;
   }
   if (filters.codeNaf) {
-    conditions.push(`naf:"${filters.codeNaf}"`);
+    params.activite_principale = filters.codeNaf;
   }
+
+  // ─── Filtres juridiques ───────────────────────────────────────
   if (filters.natureJuridique) {
-    conditions.push(`nature_juridique:"${filters.natureJuridique}"`);
+    params.nature_juridique = filters.natureJuridique;
   }
   if (filters.categorieEntreprise) {
-    conditions.push(`categorie_entreprise:"${filters.categorieEntreprise}"`);
+    params.categorie_entreprise = filters.categorieEntreprise;
   }
 
-  // Exclusions
+  // ─── Statut (état administratif) ──────────────────────────────
+  if (filters.statutEntreprise) {
+    const etat = mapStatutToEtatAdministratif(filters.statutEntreprise);
+    if (etat) {
+      params.etat_administratif = etat;
+    }
+  }
+
+  // ─── Effectifs ────────────────────────────────────────────────
+  if (filters.effectifMin != null || filters.effectifMax != null) {
+    // L'API utilise la nomenclature INSEE des tranches d'effectif salarié
+    // On mappe la plage min/max vers la tranche la plus appropriée
+    const tranche = mapEffectifToTranche(filters.effectifMin, filters.effectifMax);
+    if (tranche) {
+      params.tranche_effectif_salarie = tranche;
+    }
+  }
+
+  // ─── Exclusions ───────────────────────────────────────────────
   if (filters.excludeAssociations) {
-    conditions.push('(nature_juridique:NOT "Association")');
+    params.est_association = 'false';
   }
   if (filters.excludeAutoEntrepreneurs) {
-    conditions.push('(nature_juridique:NOT "Auto-entrepreneur")');
+    params.est_entrepreneur_individuel = 'false';
   }
 
-  // Employee count filters - use tranche_effectifs if available
-  // API Gouv uses categories, not exact numbers
+  // ─── Filtres financiers (CA min/max) ──────────────────────────
+  if (filters.caMin != null) {
+    params.ca_min = String(filters.caMin);
+  }
+  if (filters.caMax != null) {
+    params.ca_max = String(filters.caMax);
+  }
 
-  if (conditions.length > 0) {
-    const conditionsStr = conditions.join(' AND ');
-    if (filters.query) {
-      params.q = `${filters.query} AND ${conditionsStr}`;
-    } else {
-      params.q = conditionsStr;
-    }
-  } else if (!filters.query) {
-    // Aucun terme de recherche ni filtre
+  // Vérifier qu'on a au moins un paramètre de recherche
+  const hasFilters = Object.keys(params).some(k => !['per_page', 'page'].includes(k));
+  if (!hasFilters) {
     return [];
   }
 
@@ -77,7 +110,7 @@ export async function searchApiGouv(filters: SearchFilters): Promise<CompanySear
     });
 
     if (!response.ok) {
-      console.error('API Gouv search error:', response.status);
+      console.error('API Gouv search error:', response.status, await response.text().catch(() => ''));
       return [];
     }
 
@@ -92,5 +125,43 @@ export async function searchApiGouv(filters: SearchFilters): Promise<CompanySear
     console.error('API Gouv search error:', error);
     return [];
   }
+}
+
+/**
+ * Convertit une plage d'effectifs en code tranche INSEE.
+ * Codes INSEE : 00=0, 01=1-2, 02=3-5, 03=6-9, 11=10-19, 12=20-49,
+ * 21=50-99, 22=100-199, 31=200-249, 32=250-499, 41=500-999,
+ * 42=1000-1999, 51=2000-4999, 52=5000-9999, 53=10000+
+ */
+function mapEffectifToTranche(min?: number, max?: number): string | null {
+  if (min == null && max == null) return null;
+
+  const effectiveMin = min ?? 0;
+  const effectiveMax = max ?? Infinity;
+
+  // Find the best matching tranche range
+  const tranches = [
+    { code: '00', min: 0, max: 0 },
+    { code: '01', min: 1, max: 2 },
+    { code: '02', min: 3, max: 5 },
+    { code: '03', min: 6, max: 9 },
+    { code: '11', min: 10, max: 19 },
+    { code: '12', min: 20, max: 49 },
+    { code: '21', min: 50, max: 99 },
+    { code: '22', min: 100, max: 199 },
+    { code: '31', min: 200, max: 249 },
+    { code: '32', min: 250, max: 499 },
+    { code: '41', min: 500, max: 999 },
+    { code: '42', min: 1000, max: 1999 },
+    { code: '51', min: 2000, max: 4999 },
+    { code: '52', min: 5000, max: 9999 },
+    { code: '53', min: 10000, max: Infinity },
+  ];
+
+  // Return all tranches that overlap with the requested range
+  const matching = tranches.filter(t => t.max >= effectiveMin && t.min <= effectiveMax);
+  if (matching.length === 0) return null;
+  // API accepts comma-separated tranche codes
+  return matching.map(t => t.code).join(',');
 }
 

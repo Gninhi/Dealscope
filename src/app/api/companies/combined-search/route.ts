@@ -6,6 +6,7 @@ import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import { parseSearchFilters, hasSearchParams } from '@/lib/services/company.service';
 import type { CombinedSearchResult, InfoGreffeRecord } from '@/lib/types';
+import { getEffectifFromTranche, getRegionName } from '@/lib/utils';
 
 // GET /api/companies/combined-search - recherche parallèle
 export async function GET(request: NextRequest) {
@@ -45,31 +46,65 @@ export async function GET(request: NextRequest) {
       ? (settledResults[(callApiGouv ? 1 : 0)] as PromiseFulfilledResult<any>).value
       : [];
 
-    const gouvMapped: CombinedSearchResult[] = apiGouvData.map((r: any) => ({
-      siren: r.siren,
-      name: r.nom_raison_sociale || r.nom_complet || '',
-      sector: r.section_activites_principales || '',
-      nafCode: r.naf || '',
-      nafLabel: r.libelle_naf || '',
-      location: `${r.libelle_commune || ''} ${r.code_postal || ''}`.trim(),
-      postalCode: r.code_postal || '',
-      city: r.libelle_commune || '',
-      department: r.departement || undefined,
-      region: r.region || undefined,
-      address: r.geo_adresse || undefined,
-      latitude: r.coordonnees?.lat ? parseFloat(r.coordonnees.lat) : undefined,
-      longitude: r.coordonnees?.lon ? parseFloat(r.coordonnees.lon) : undefined,
-      employeeCount: undefined,
-      categorieEntreprise: r.categorie_entreprise || undefined,
-      natureJuridique: r.nature_juridique || undefined,
-      revenue: r.ca ?? undefined,
-      directors: r.dirigeants?.map((d: any) => ({
-        nom: d.nom,
-        prenom: d.prenom,
-        fonction: d.fonction,
-      })),
-      source: 'api-gouv',
-    }));
+    const gouvMapped: CombinedSearchResult[] = apiGouvData.map((r: any) => {
+      const siege = r.siege || {};
+      // Extraire le CA le plus récent depuis l'objet finances si disponible
+      let latestCa: number | undefined = undefined;
+      let gouvCaHistory: any[] | undefined = undefined;
+      let caTrend: number | undefined = undefined;
+      if (r.finances && typeof r.finances === 'object') {
+        const years = Object.keys(r.finances).sort().reverse();
+        if (years.length > 0) {
+          gouvCaHistory = years.map(year => ({
+            year,
+            ca: r.finances[year]?.ca ?? null,
+            resultat: r.finances[year]?.resultat_net ?? null,
+            effectif: r.finances[year]?.effectif ?? null,
+            dateCloture: undefined
+          }));
+          latestCa = gouvCaHistory[0]?.ca ?? undefined;
+        }
+      }
+
+      const employeeCountFromTranche = getEffectifFromTranche(r.tranche_effectif_salarie);
+
+      return {
+        siren: r.siren,
+        name: r.nom_raison_sociale || r.nom_complet || '',
+        sector: r.section_activite_principale || '',
+        nafCode: r.activite_principale || siege.activite_principale || '',
+        nafLabel: '',
+        location: `${siege.libelle_commune || ''} ${siege.code_postal || ''}`.trim(),
+        postalCode: siege.code_postal || '',
+        city: siege.libelle_commune || '',
+        department: siege.departement || undefined,
+        region: siege.region ? getRegionName(siege.region) : undefined,
+        address: siege.geo_adresse || siege.adresse || undefined,
+        latitude: siege.latitude ? Number(siege.latitude) : undefined,
+        longitude: siege.longitude ? Number(siege.longitude) : undefined,
+        employeeCount: employeeCountFromTranche ?? undefined,
+        categorieEntreprise: r.categorie_entreprise || undefined,
+        natureJuridique: r.nature_juridique || undefined,
+        revenue: latestCa ?? r.ca ?? undefined,
+        caHistory: gouvCaHistory,
+        statut: r.etat_administratif === 'A' ? 'Active' : r.etat_administratif === 'C' ? 'Cessée' : undefined,
+        dateImmatriculation: r.date_creation || undefined,
+        directors: r.dirigeants?.map((d: any) => ({
+          nom: d.nom,
+          prenom: d.prenoms || d.prenom,
+          fonction: d.qualite || d.type_dirigeant || d.fonction,
+        })).sort((a: any, b: any) => {
+           const aRoles = (a.fonction || '').toLowerCase();
+           const bRoles = (b.fonction || '').toLowerCase();
+           const aIsLeader = aRoles.includes('président') || aRoles.includes('president') || aRoles.includes('directeur');
+           const bIsLeader = bRoles.includes('président') || bRoles.includes('president') || bRoles.includes('directeur');
+           if (aIsLeader && !bIsLeader) return -1;
+           if (!aIsLeader && bIsLeader) return 1;
+           return 0;
+        }) || [],
+        source: 'api-gouv',
+      };
+    });
 
     const infoGreffeMap = new Map<string, InfoGreffeRecord>();
     for (const record of infoGreffeData) {
@@ -84,18 +119,24 @@ export async function GET(request: NextRequest) {
       const financialRecord = infoGreffeMap.get(result.siren);
       if (financialRecord) {
         const financial = parseInfoGreffeFinancial(financialRecord);
-        result.caHistory = financial?.caHistory;
-        if (result.revenue == null && financial?.latestCa) {
-          result.revenue = financial.latestCa;
+        if (financial) {
+           result.caHistory = (financial.caHistory && financial.caHistory.length > 0) 
+             ? financial.caHistory 
+             : result.caHistory;
+           
+           if (result.revenue == null && financial.latestCa != null) {
+             result.revenue = financial.latestCa;
+           }
+           result.dateClotureExercice = financial.latestDateCloture || undefined;
+           result.trancheCA = financial.trancheCA || undefined;
         }
+
         if (!result.nafLabel && financialRecord.libelle_ape) {
           result.nafLabel = financialRecord.libelle_ape;
         }
         result.dateImmatriculation = financialRecord.date_immatriculation || undefined;
         result.statut = financialRecord.statut || undefined;
         result.greffe = financialRecord.greffe || undefined;
-        result.dateClotureExercice = financial?.latestDateCloture || undefined;
-        result.trancheCA = financial?.trancheCA || undefined;
         if (financialRecord.adresse) {
           result.adresse = financialRecord.adresse;
         }

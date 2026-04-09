@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id            String         @id @default(cuid())
+  name          String
+  slug          String         @unique
+  plan          String         @default("free")
+  createdAt     DateTime       @default(now())
+  users         User[]
+  icpProfiles   ICPProfile[]
+  targetCompanies TargetCompany[]
+  scanHistories ScanHistory[]
+  chatMessages  ChatMessage[]
+  newsArticles  NewsArticle[]
+  newsAlerts    NewsAlert[]
+  newsBookmarks NewsBookmark[]
+}
+
+model User {
+  id              String      @id @default(cuid())
+  workspaceId     String
+  email           String      @unique
+  password        String      @default("")
+  emailVerified   Boolean     @default(false)
+  firstName       String      @default("")
+  lastName        String      @default("")
+  role            String      @default("member")
+  resetToken      String?     @db.VarChar(255)
+  resetTokenExpiry DateTime?
+  createdAt       DateTime    @default(now())
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id])
+
+  @@index([email])
+}
+
+model AppSetting {
+  id           String   @id @default("app")
+  isFirstSetup Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ICPProfile {
+  id            String        @id @default(cuid())
+  workspaceId   String
+  name          String
+  criteria      String        @default("{}")
+  weights       String        @default("{}")
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id])
+  targetCompanies TargetCompany[]
+
+  @@index([workspaceId])
+}
+
+model TargetCompany {
+  id                  String          @id @default(cuid())
+  workspaceId         String
+  icpProfileId        String?
+  siren               String
+  name                String
+  legalName           String          @default("")
+  sector              String          @default("")
+  sizeRange           String          @default("")
+  revenue             Double?
+  address             String          @default("")
+  city                String          @default("")
+  postalCode          String          @default("")
+  region              String          @default("")
+  latitude            Double?
+  longitude           Double?
+  nafCode             String          @default("")
+  employeeCount       Int?
+  icpScore            Double?
+  status              String          @default("a_contacter")
+  notes               String          @default("")
+  source              String          @default("manual")
+  natureJuridique     String          @default("")
+  categorieEntreprise String          @default("")
+  nafLabel            String          @default("")
+  dateImmatriculation String          @default("")
+  statutEntreprise    String          @default("")
+  greffe              String          @default("")
+  trancheCA           String          @default("")
+  dateClotureExercice String          @default("")
+  adresseComplete     String          @default("")
+  enrichedData        String          @default("{}")
+  isEnriched          Boolean         @default(false)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  workspace           Workspace       @relation(fields: [workspaceId], references: [id])
+  icpProfile          ICPProfile?     @relation(fields: [icpProfileId], references: [id])
+  signals             CompanySignal[]
+  contacts            Contact[]
+  pipelineStages      PipelineStage[]
+  newsAlerts          NewsAlert[]
+
+  @@unique([workspaceId, siren])
+  @@index([workspaceId, status])
+  @@index([workspaceId, sector])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, updatedAt])
+}
+
+model CompanySignal {
+  id          String       @id @default(cuid())
+  companyId   String
+  type        String
+  title       String
+  description String       @default("")
+  source      String       @default("")
+  detectedAt  DateTime     @default(now())
+  confidence  Double?
+  company     TargetCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model Contact {
+  id            String       @id @default(cuid())
+  companyId     String
+  firstName     String       @default("")
+  lastName      String       @default("")
+  email         String       @default("")
+  role          String       @default("")
+  seniority     String       @default("")
+  emailVerified Boolean      @default(false)
+  company       TargetCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model PipelineStage {
+  id         String       @id @default(cuid())
+  companyId  String
+  stage      String
+  assignedTo String       @default("")
+  notes      String       @default("")
+  movedAt    DateTime     @default(now())
+  company    TargetCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, stage])
+}
+
+model ScanHistory {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  icpProfileId     String?
+  status           String    @default("pending")
+  totalTargets     Int       @default(0)
+  processedTargets Int       @default(0)
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+  workspace        Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+}
+
+model ChatMessage {
+  id          String    @id @default(cuid())
+  workspaceId String
+  role        String
+  content     String
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId, createdAt])
+}
+
+model NewsArticle {
+  id          String        @id @default(cuid())
+  workspaceId String
+  title       String
+  snippet     String        @default("")
+  url         String        @unique
+  hostName    String        @default("")
+  favicon     String        @default("")
+  date        String        @default("")
+  category    String        @default("")
+  query       String        @default("")
+  source      String        @default("")
+  isRead      Boolean       @default(false)
+  isImportant Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+  bookmarks   NewsBookmark[]
+
+  @@index([workspaceId, category])
+}
+
+model NewsAlert {
+  id            String      @id @default(cuid())
+  workspaceId   String
+  name          String
+  type          String      @default("keyword")
+  keywords      String      @default("[]")
+  sector        String      @default("")
+  companyId     String?
+  company       TargetCompany? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  isActive      Boolean     @default(true)
+  lastTriggered DateTime?
+  createdAt     DateTime    @default(now())
+  workspace     Workspace   @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+}
+
+model NewsBookmark {
+  id          String      @id @default(cuid())
+  workspaceId String
+  articleId   String
+  notes       String      @default("")
+  createdAt   DateTime    @default(now())
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([workspaceId, articleId])
+}

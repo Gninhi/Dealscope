@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { updateCompanySchema } from '@/validators';
-import { ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
+import { isAllowedUpdateField, ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
 import { validateCsrf, safeErrorResponse, isValidId, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 
 // GET /api/companies/[id]
@@ -103,16 +103,16 @@ export async function PUT(
     }
 
     // Whitelist and sanitize fields
-    const sanitizedData: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(parsed.data)) {
-      if (ALLOWED_COMPANY_UPDATE_FIELDS.has(key) && value !== undefined) {
-        if (typeof value === 'string') {
-          sanitizedData[key] = sanitizeInput(value, key === 'notes' ? 50000 : 200);
-        } else {
-          sanitizedData[key] = value;
-        }
+  const sanitizedData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (key !== 'id' && isAllowedUpdateField(key) && value !== undefined) {
+      if (typeof value === 'string') {
+        sanitizedData[key] = sanitizeInput(value, key === 'notes' ? 50000 : 200);
+      } else {
+        sanitizedData[key] = value;
       }
     }
+  }
 
     if (Object.keys(sanitizedData).length === 0) {
       return NextResponse.json(

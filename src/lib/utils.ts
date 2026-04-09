@@ -112,3 +112,43 @@ export function getStatutLabel(statut?: string): string {
   if (s === 'radiée' || s === 'radiee') return 'Radiée';
   return statut;
 }
+
+export function getRegionName(code?: string): string {
+  if (!code) return '';
+  const regions: Record<string, string> = {
+    '01': 'Guadeloupe', '02': 'Martinique', '03': 'Guyane', '04': 'La Réunion', '06': 'Mayotte',
+    '11': 'Île-de-France',
+    '24': 'Centre-Val de Loire',
+    '27': 'Bourgogne-Franche-Comté',
+    '28': 'Normandie',
+    '32': 'Hauts-de-France',
+    '44': 'Grand Est',
+    '52': 'Pays de la Loire',
+    '53': 'Bretagne',
+    '75': 'Nouvelle-Aquitaine',
+    '76': 'Occitanie',
+    '84': 'Auvergne-Rhône-Alpes',
+    '93': 'Provence-Alpes-Côte d\'Azur',
+    '94': 'Corse',
+  };
+  return regions[code] || code;
+}
+
+export function formatSource(source?: string): string {
+  if (!source) return 'Recherche';
+  if (source.includes('api-gouv')) return 'API Gouv';
+  if (source.includes('infogreffe')) return 'InfoGreffe';
+  if (source === 'all') return 'API Gouv & InfoGreffe';
+  if (source === 'search') return 'Recherche';
+  return source.charAt(0).toUpperCase() + source.slice(1);
+}
+
+export function getEffectifFromTranche(tranche?: string): number | null {
+  if (!tranche) return null;
+  const map: Record<string, number> = {
+    '00': 0, '01': 1, '02': 3, '03': 6, '11': 10, '12': 20, '21': 50,
+    '22': 100, '31': 200, '32': 250, '41': 500, '42': 1000,
+    '51': 2000, '52': 5000, '53': 10000,
+  };
+  return map[tranche] ?? null;
+}
