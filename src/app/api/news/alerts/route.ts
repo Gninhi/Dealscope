@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { createAlertSchema, updateAlertSchema as patchAlertSchema } from '@/validators';
+import { createAlertSchema, updateAlertSchema as patchAlertSchema } from '@/lib/validators';
 import { validateCsrf, safeErrorResponse, isValidId, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 
 // GET /api/news/alerts

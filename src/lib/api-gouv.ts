@@ -1,6 +1,8 @@
 import type { CompanySearchResult, SearchFilters } from './types';
+import { EXTERNAL_URLS, TIMEOUTS } from '@/constants';
+import { createLogger } from './logger';
 
-const API_GOUV_BASE = 'https://recherche-entreprises.api.gouv.fr/search';
+const logger = createLogger('ApiGouv');
 
 /**
  * Map le statut interne vers la valeur API Gouv etat_administratif.
@@ -96,7 +98,7 @@ export async function searchApiGouv(filters: SearchFilters): Promise<CompanySear
     return [];
   }
 
-  const url = new URL(API_GOUV_BASE);
+  const url = new URL(EXTERNAL_URLS.API_GOUV_SEARCH);
   Object.entries(params).forEach(([key, value]) => {
     url.searchParams.set(key, value);
   });
@@ -106,23 +108,24 @@ export async function searchApiGouv(filters: SearchFilters): Promise<CompanySear
       headers: {
         'Accept': 'application/json',
       },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(TIMEOUTS.API_GOUV_MS),
     });
 
     if (!response.ok) {
-      console.error('API Gouv search error:', response.status, await response.text().catch(() => ''));
+      const errorText = await response.text().catch(() => '');
+      logger.error('Search failed', { status: response.status, errorText });
       return [];
     }
 
     const text = await response.text();
     if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-      console.error('API returned HTML instead of JSON');
+      logger.error('API returned HTML instead of JSON');
       return [];
     }
-    const data = JSON.parse(text);
+    const data = JSON.parse(text) as { results?: CompanySearchResult[] };
     return data.results || [];
   } catch (error) {
-    console.error('API Gouv search error:', error);
+    logger.error('Search request failed', error);
     return [];
   }
 }

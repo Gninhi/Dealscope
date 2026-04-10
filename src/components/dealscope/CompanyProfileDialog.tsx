@@ -107,9 +107,9 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
         if (compRes.ok) {
           const compText = await compRes.text();
           try {
-            const allData = JSON.parse(compText);
-            const list = Array.isArray(allData.companies) ? allData.companies : (Array.isArray(allData) ? allData : []);
-            const foundCompany = list.find((c: any) => c.siren === siren);
+const allData = JSON.parse(compText);
+      const list = Array.isArray(allData.companies) ? allData.companies : (Array.isArray(allData) ? allData : []);
+      const foundCompany = list.find((c: { siren: string }) => c.siren === siren);
             if (foundCompany) {
               setCompany(foundCompany);
               setNotesValue(foundCompany.notes || '');
@@ -210,30 +210,30 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
   const dateClotureExercice = company?.dateClotureExercice || sr?.dateClotureExercice || '';
   const isEnriched = company?.isEnriched || false;
   
-  const directors = useMemo(() => {
-    let list = enrichedData?.apiGouv?.dirigeants || sr?.directors || [];
-    return [...list].sort((a: any, b: any) => {
-      const aRole = (a.qualite || a.fonction || a.type_dirigeant || '').toLowerCase();
-      const bRole = (b.qualite || b.fonction || b.type_dirigeant || '').toLowerCase();
-      const aLeader = aRole.includes('président') || aRole.includes('president') || aRole.includes('directeur');
-      const bLeader = bRole.includes('président') || bRole.includes('president') || bRole.includes('directeur');
-      if (aLeader && !bLeader) return -1;
-      if (!aLeader && bLeader) return 1;
-      return 0;
-    });
-  }, [enrichedData, sr]);
+const directors = useMemo(() => {
+  let list = enrichedData?.apiGouv?.dirigeants || sr?.directors || [];
+  return [...list].sort((a: { qualite?: string; fonction?: string; type_dirigeant?: string }, b: { qualite?: string; fonction?: string; type_dirigeant?: string }) => {
+    const aRole = (a.qualite || a.fonction || a.type_dirigeant || '').toLowerCase();
+    const bRole = (b.qualite || b.fonction || b.type_dirigeant || '').toLowerCase();
+    const aLeader = aRole.includes('président') || aRole.includes('president') || aRole.includes('directeur');
+    const bLeader = bRole.includes('président') || bRole.includes('president') || bRole.includes('directeur');
+    if (aLeader && !bLeader) return -1;
+    if (!aLeader && bLeader) return 1;
+    return 0;
+  });
+}, [enrichedData, sr]);
 
-  const caHistoryFromDb = enrichedData?.financial?.caHistory || [];
-  const caHistory = caHistoryFromDb.length > 0 ? caHistoryFromDb : (sr?.caHistory || []);
-  const etablissements = enrichedData?.apiGouv?.matchingEtablissements || [];
-  const latestResultat = enrichedData?.financial?.latestResultat ?? enrichedData?.apiGouv?.resultatNet ?? null;
-  const latestEffectif = enrichedData?.financial?.latestEffectif ?? null;
-  const dateRadiation = enrichedData?.infogreffe?.dateRadiation || '';
-  const nbEtablissements = enrichedData?.apiGouv?.nombreEtablissements;
-  const nbEtablissementsOuvert = enrichedData?.apiGouv?.nombreEtablissementsOuvert;
-  const lastEnrichedAt = enrichedData?.lastEnrichedAt || '';
+const caHistoryFromDb = enrichedData?.financial?.caHistory || [];
+const caHistory = caHistoryFromDb.length > 0 ? caHistoryFromDb : (sr?.caHistory || []);
+const etablissements = enrichedData?.apiGouv?.matchingEtablissements || [];
+const latestResultat = enrichedData?.financial?.latestResultat ?? enrichedData?.apiGouv?.resultatNet ?? null;
+const latestEffectif = enrichedData?.financial?.latestEffectif ?? null;
+const dateRadiation = enrichedData?.infogreffe?.dateRadiation || '';
+const nbEtablissements = enrichedData?.apiGouv?.nombreEtablissements;
+const nbEtablissementsOuvert = enrichedData?.apiGouv?.nombreEtablissementsOuvert;
+const lastEnrichedAt = enrichedData?.lastEnrichedAt || '';
 
-  const filteredCaHistory = caHistory.filter((h: any) => h.year);
+const filteredCaHistory = caHistory.filter((h: { year: string }) => h.year);
 
   // Calcul CA trend — hook avant tout return conditionnel
   const caTrend = useMemo(() => {
@@ -562,7 +562,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                           formatter={(value: number) => [formatCurrency(value), 'CA']}
                         />
                         <Bar dataKey="ca" radius={[4, 4, 0, 0]} barSize={40}>
-                          {filteredCaHistory.map((_: any, index: number) => (
+                          {filteredCaHistory.map((_: { year: string }, index: number) => (
                             <Cell key={index} fill={['#6366F1', '#8B5CF6', '#A78BFA'][index % 3]} fillOpacity={0.8} />
                           ))}
                         </Bar>
@@ -570,7 +570,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                     </ResponsiveContainer>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    {filteredCaHistory.map((h: any, i: number) => (
+                    {filteredCaHistory.map((h: { year: string; ca?: number | null; resultat?: number | null; effectif?: number | null; dateCloture?: string }, i: number) => (
                       <div key={i} className="rounded-lg bg-card/50 p-2.5 text-center">
                         <p className="text-[10px] text-muted-foreground mb-1">{h.year}</p>
                         <p className="text-xs font-bold text-foreground">{formatCurrency(h.ca)}</p>
@@ -682,7 +682,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                     Dirigeants ({directors.length})
                   </h3>
                   <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-                    {directors.map((d: any, i: number) => {
+                    {directors.map((d: { nom?: string; prenom?: string; prenoms?: string[]; fonction?: string; qualite?: string; type_dirigeant?: string; date_naissance?: string }, i: number) => {
                       const prenom = d.prenoms || d.prenom;
                       const role = d.qualite || d.fonction || d.type_dirigeant;
                       return (
@@ -723,7 +723,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                   </button>
                   {showEstablishments && (
                     <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                      {etablissements.map((e: any, i: number) => (
+                      {etablissements.map((e: { siret: string; enseigne?: string; geo_adresse?: string; code_postal?: string; libelle_commune?: string }, i: number) => (
                         <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-card/50">
                           <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 text-[10px] font-mono">
                             <FileText className="w-3.5 h-3.5" />
@@ -755,7 +755,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                     Contacts ({contacts.length})
                   </h3>
                   <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-                    {contacts.map((c: any) => (
+                    {contacts.map((c: { id: string; firstName: string; lastName: string; email: string; role: string; seniority?: string; emailVerified?: boolean }) => (
                       <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-card/50">
                         <div className="w-9 h-9 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs font-bold border border-blue-500/20">
                           {(c.firstName?.[0] || '')}{(c.lastName?.[0] || '')}
@@ -798,7 +798,7 @@ export default function CompanyProfileDialog({ companyId, siren, searchResult, o
                   </button>
                   {showSignals && (
                     <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                      {signals.map((s: any) => (
+                      {signals.map((s: { id: string; type: string; title: string; description: string; source: string; detectedAt: string; confidence: number | null }) => (
                         <div key={s.id} className="flex items-start gap-3 p-2.5 rounded-lg bg-card/50">
                           <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
                             s.type === 'growth' ? 'bg-emerald-400' :

@@ -1,6 +1,8 @@
 import type { InfoGreffeRecord, SearchFilters } from './types';
+import { EXTERNAL_URLS, TIMEOUTS } from '@/constants';
+import { createLogger } from './logger';
 
-const INFOGREFFE_BASE = 'https://opendata.datainfogreffe.fr/api/explore/v2.1/catalog/datasets/chiffres-cles-2024/records';
+const logger = createLogger('InfoGreffe');
 
 /**
  * Convertit une tranche CA en conditions SQL pour l'API InfoGreffe.
@@ -148,7 +150,7 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
     }
   }
 
-  const url = new URL(INFOGREFFE_BASE);
+  const url = new URL(EXTERNAL_URLS.INFOGREFFE_API);
   Object.entries(params).forEach(([key, value]) => {
     url.searchParams.set(key, value);
   });
@@ -158,23 +160,23 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
       headers: {
         'Accept': 'application/json',
       },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(TIMEOUTS.INFOGREFFE_MS),
     });
 
     if (!response.ok) {
-      console.error('InfoGreffe search error:', response.status);
+      logger.error('Search failed', { status: response.status });
       return [];
     }
 
     const text = await response.text();
     if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-      console.error('API returned HTML instead of JSON');
+      logger.error('API returned HTML instead of JSON');
       return [];
     }
-    const data = JSON.parse(text);
+    const data = JSON.parse(text) as { results?: InfoGreffeRecord[] };
     return data.results || [];
   } catch (error) {
-    console.error('InfoGreffe search error:', error);
+    logger.error('Search request failed', error);
     return [];
   }
 }
@@ -184,37 +186,36 @@ export async function searchInfoGreffe(filters: SearchFilters): Promise<InfoGref
  */
 export async function getInfoGreffeBySiren(siren: string): Promise<InfoGreffeRecord | null> {
   try {
-    // Sanitize SIREN to prevent SQL injection in the WHERE clause
     const safeSiren = siren.replace(/[^0-9]/g, '').slice(0, 9);
     if (safeSiren.length !== 9) return null;
 
     const response = await fetch(
-      `${INFOGREFFE_BASE}?where=siren%3D"${safeSiren}"&limit=1`,
+      `${EXTERNAL_URLS.INFOGREFFE_API}?where=siren%3D"${safeSiren}"&limit=1`,
       {
         headers: {
           'Accept': 'application/json',
         },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(TIMEOUTS.INFOGREFFE_MS),
       }
     );
 
     if (!response.ok) {
-      console.error('InfoGreffe SIREN lookup error:', response.status);
+      logger.error('SIREN lookup failed', { status: response.status, siren: safeSiren });
       return null;
     }
 
-    const text2 = await response.text();
-    if (text2.startsWith('<!DOCTYPE') || text2.startsWith('<html')) {
-      console.error('API returned HTML instead of JSON');
+    const text = await response.text();
+    if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+      logger.error('API returned HTML instead of JSON');
       return null;
     }
-    const data = JSON.parse(text2);
+    const data = JSON.parse(text) as { results?: InfoGreffeRecord[] };
     if (data.results && data.results.length > 0) {
       return data.results[0];
     }
     return null;
   } catch (error) {
-    console.error('InfoGreffe SIREN lookup error:', error);
+    logger.error('SIREN lookup request failed', error);
     return null;
   }
 }

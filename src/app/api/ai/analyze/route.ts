@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, getClientIp, rateLimitedResponse, safeErrorResponse, validateCsrf, isValidId } from '@/lib/security';
-import { getGemma4, type CompanyData } from '@/lib/gemma4';
+import { getLLMProviderFactory } from '@/lib/llm';
+import { createLogger } from '@/lib/logger';
 import { z } from 'zod';
+
+const logger = createLogger('AIAnalyze');
 
 const analyzeRequestSchema = z.object({
   companyId: z.string().optional(),
@@ -22,6 +25,24 @@ const analyzeRequestSchema = z.object({
     notes: z.string().optional(),
   }).optional(),
 });
+
+interface CompanyAnalysisData {
+  name?: string;
+  siren?: string;
+  sector?: string;
+  nafCode?: string;
+  nafLabel?: string;
+  revenue?: number;
+  employeeCount?: number;
+  city?: string;
+  region?: string;
+  dateImmatriculation?: string;
+  natureJuridique?: string;
+  categorieEntreprise?: string;
+  trancheCA?: string;
+  status?: string;
+  notes?: string;
+}
 
 // POST /api/ai/analyze — SSE streaming company analysis
 export async function POST(request: NextRequest) {
@@ -51,8 +72,7 @@ export async function POST(request: NextRequest) {
 
     const { companyId, companyData } = parsed.data;
 
-    // Resolve company data: either from companyId or direct payload
-    let resolvedCompany: CompanyData;
+    let resolvedCompany: CompanyAnalysisData;
 
     if (companyId) {
       // Validate ID format
@@ -124,53 +144,73 @@ export async function POST(request: NextRequest) {
     // Create SSE stream
     const stream = new ReadableStream({
       async start(controller) {
-        const encoder = new TextEncoder();
+const encoder = new TextEncoder();
 
-        try {
-          const gemma4 = getGemma4();
+    try {
+      const llmFactory = getLLMProviderFactory();
 
-          // Send analysis start event
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: 'start', company: resolvedCompany.name || 'Entreprise' })}\n\n`,
-            ),
-          );
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: 'start', company: resolvedCompany.name || 'Entreprise' })}\n\n`,
+        ),
+      );
 
-          // Generate the analysis
-          const result = await gemma4.analyzeCompany(resolvedCompany);
+      const systemPrompt = `Tu es GEMMA_4, un moteur d'analyse IA spécialisé dans les fusions et acquisitions (M&A) en France.
 
-          // Send the analysis result
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: 'result', content: result.content, model: result.model })}\n\n`,
-            ),
-          );
+Tu analyses des entreprises pour évaluer leur pertinence en tant que cible M&A. Tu fournis une analyse structurée et approfondie.
 
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        } catch (error) {
-          console.error('[AI Analyze] Error:', error);
-          const errorMsg = 'Erreur lors de l\'analyse IA. Veuillez réessayer.';
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: 'error', content: errorMsg })}\n\n`,
-            ),
-          );
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        } finally {
-          controller.close();
-        }
+Pour chaque analyse, tu dois fournir:
+1. **Profil de l'entreprise** — Résumé des informations clés
+2. **Forces M&A** — Atouts pour une acquisition (taille, croissance, positionnement, etc.)
+3. **Signaux d'opportunité** — Éléments suggérant une ouverture à une transaction
+4. **Risques identifiés** — Points de vigilance (litiges, dépendances, marché, etc.)
+5. **Note de pertinence** — Score de 1 à 10 avec justification
+6. **Recommandations** — Actions suggérées pour l'équipe M&A
+
+Réponds toujours en français. Sois précis et professionnel. Utilise des données chiffrées quand disponibles.
+Format de réponse en JSON valide avec les clés: profile, strengths, opportunities, risks, relevanceScore, recommendations.`;
+
+      const result = await llmFactory.chat([
+        {
+          role: 'user',
+          content: `Analyse cette entreprise pour une perspective M&A:\n\n${JSON.stringify(resolvedCompany, null, 2)}\n\nFournis une analyse complète et structurée au format JSON.`,
+        },
+      ], {
+        systemPrompt,
+        temperature: 0.4,
+      });
+
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: 'result', content: result.content, model: result.model })}\n\n`,
+        ),
+      );
+
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+    } catch (error) {
+      logger.error('Analysis generation failed', error);
+      const errorMsg = 'Erreur lors de l\'analyse IA. Veuillez réessayer.';
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: 'error', content: errorMsg })}\n\n`,
+        ),
+      );
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+    } finally {
+      controller.close();
+    }
       },
     });
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    });
-  } catch (error) {
-    console.error('[AI Analyze] Unexpected error:', error);
-    return safeErrorResponse('Analyse IA échouée', 500);
-  }
+return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  });
+} catch (error) {
+  logger.error('Unexpected error', error);
+  return safeErrorResponse('Analyse IA échouée', 500);
+}
 }

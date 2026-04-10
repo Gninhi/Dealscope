@@ -46,6 +46,7 @@ export const scanSchema = z.object({
   query: z.string().max(500).trim().optional().default(''),
   sector: z.string().max(100).trim().optional(),
   icpProfileId: idSchema.optional(),
+  model: z.string().max(100).optional(),
   limit: z.number().int().min(1).max(50).optional().default(10),
 });
 

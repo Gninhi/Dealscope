@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
       results: result.results.slice(0, limit),
       total: result.total,
       category: result.category,
+      lastUpdated: result.lastUpdated,
+      sources: result.sources,
       ...(result.cached ? { cached: true } : {}),
       ...(result.demo ? { demo: true } : {}),
     });

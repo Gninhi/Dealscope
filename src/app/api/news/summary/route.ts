@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
-import { newsSummarySchema } from '@/validators';
-import { getGemma4 } from '@/lib/gemma4';
+import { newsSummarySchema } from '@/lib/validators';
+import { getLLMProviderFactory } from '@/lib/llm';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('NewsSummary');
 
 // POST /api/news/summary
 export async function POST(request: NextRequest) {
@@ -27,8 +30,8 @@ export async function POST(request: NextRequest) {
     }
     const { title, snippet } = parsed.data;
 
-    const gemma4 = getGemma4();
-    const result = await gemma4.chat([
+    const llmFactory = getLLMProviderFactory();
+    const result = await llmFactory.chat([
       {
         role: 'user',
         content: `Analyse cette actualité M&A en 3-4 phrases maximum en français:\n\nTitre: ${title}\n${snippet ? `Résumé: ${snippet}` : ''}\n\nMets en évidence les faits, montants, impact marché et entreprises concernées. Sois factuel.`,
@@ -47,7 +50,7 @@ Sois factuel et professionnel.`,
     const summary = result.content || 'Impossible de générer un résumé.';
     return NextResponse.json({ summary });
   } catch (error) {
-    console.error('Summary error:', error);
+    logger.error('Summary generation failed', error);
     return safeErrorResponse('Échec du résumé', 500);
   }
 }

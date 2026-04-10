@@ -44,12 +44,23 @@ const AI_INSIGHTS = [
   },
 ];
 
+interface RecentCompany {
+  id: string;
+  name: string;
+  sector: string;
+  status: string;
+  icpScore: number | null;
+  city?: string;
+  postalCode?: string;
+  createdAt?: string;
+}
+
 interface Stats {
   totalCompanies: number;
   pipelineByStage: Record<string, number>;
   topSectors: { sector: string; count: number }[];
   avgIcpScore: number;
-  recentCompanies: any[];
+  recentCompanies: RecentCompany[];
   totalSignals: number;
   totalContacts: number;
 }
@@ -239,7 +250,7 @@ export default function DashboardTab() {
           <p className="text-muted-foreground text-sm">Aucune entreprise récente</p>
         ) : (
           <div className="space-y-3">
-            {s.recentCompanies.map((company: any) => (
+            {s.recentCompanies.map((company: RecentCompany) => (
               <div
                 key={company.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-accent/30 transition-colors cursor-pointer"
@@ -259,7 +270,7 @@ export default function DashboardTab() {
                     <div className={`w-2 h-2 rounded-full ${getStageDotColor(company.status)}`} />
                     <span className="text-xs text-muted-foreground">{getStageLabel(company.status)}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{timeAgo(company.createdAt)}</span>
+                  <span className="text-xs text-muted-foreground">{timeAgo(company.createdAt || '')}</span>
                 </div>
               </div>
             ))}

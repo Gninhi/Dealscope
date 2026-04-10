@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
 import { validateCsrf, safeErrorResponse, getClientIp, isRateLimited, rateLimitedResponse, isValidId } from '@/lib/security';
 import { enrichCompany, batchEnrich, type BatchEnrichResult } from '@/lib/services/enrich.service';
-import { batchEnrichSchema } from '@/validators';
+import { batchEnrichSchema } from '@/lib/validators';
 
 // GET /api/companies/enrich?id=xxx — enrich a single company
 export async function GET(request: NextRequest) {

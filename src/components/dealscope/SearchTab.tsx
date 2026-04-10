@@ -644,7 +644,7 @@ export default function SearchTab() {
                         Historique CA (InfoGreffe)
                       </p>
                       <div className="flex items-end gap-3">
-                        {result.caHistory.map((h: any, i: number) => (
+                        {result.caHistory.map((h: { year: string; ca: number | null }, i: number) => (
                           <div key={i} className="flex-1 text-center">
                             <p className="text-xs font-semibold text-foreground">{h.ca != null ? formatCurrency(h.ca) : 'N/A'}</p>
                             <p className="text-[10px] text-muted-foreground">{h.year}</p>
@@ -672,7 +672,7 @@ export default function SearchTab() {
                       </button>
                       {isExpanded && (
                         <div className="mt-2 space-y-1 pl-5 max-h-48 overflow-y-auto custom-scrollbar">
-                          {result.directors!.map((d: any, i: number) => (
+                          {result.directors!.map((d: { nom: string; prenom: string; fonction?: string }, i: number) => (
                             <div key={i} className="flex items-center gap-2 text-xs">
                               <div className="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-[10px] font-semibold">
                                 {d.prenom?.[0]}{d.nom?.[0]}

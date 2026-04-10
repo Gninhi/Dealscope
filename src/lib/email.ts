@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { EXTERNAL_URLS, APP_URLS, TIMEOUTS } from '@/constants';
+import { createLogger } from './logger';
+
+const logger = createLogger('Email');
 
 const emailConfigSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
@@ -7,7 +11,7 @@ const emailConfigSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default('noreply@dealscope.fr'),
-  NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
+  NEXT_PUBLIC_APP_URL: z.string().default(APP_URLS.BASE_URL),
 });
 
 type EmailConfig = z.infer<typeof emailConfigSchema>;
@@ -38,18 +42,18 @@ function getConfig(): EmailConfig {
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
     EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@dealscope.fr',
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || APP_URLS.BASE_URL,
   });
 }
 
 async function sendWithResend(params: SendEmailParams, config: EmailConfig): Promise<boolean> {
   if (!config.RESEND_API_KEY) {
-    console.warn('[Email] RESEND_API_KEY not configured');
+    logger.warn('RESEND_API_KEY not configured');
     return false;
   }
 
   try {
-    const response = await fetch('https://api.resend.com/emails', {
+    const response = await fetch(EXTERNAL_URLS.RESEND_API, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.RESEND_API_KEY}`,
@@ -62,39 +66,39 @@ async function sendWithResend(params: SendEmailParams, config: EmailConfig): Pro
         html: params.html,
         text: params.text,
       }),
+      signal: AbortSignal.timeout(TIMEOUTS.EMAIL_MS),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('[Email] Resend API error:', error);
+      logger.error('Resend API error', { status: response.status, error });
       return false;
     }
 
-    console.log('[Email] Email sent successfully via Resend to:', params.to);
+    logger.info('Email sent successfully via Resend', { to: params.to });
     return true;
   } catch (error) {
-    console.error('[Email] Failed to send via Resend:', error);
+    logger.error('Failed to send via Resend', error);
     return false;
   }
 }
 
-async function sendWithSMTP(params: SendEmailParams, config: EmailConfig): Promise<boolean> {
+async function sendWithSMTP(_params: SendEmailParams, config: EmailConfig): Promise<boolean> {
   if (!config.SMTP_HOST || !config.SMTP_USER || !config.SMTP_PASS) {
-    console.warn('[Email] SMTP not fully configured');
+    logger.warn('SMTP not fully configured');
     return false;
   }
 
-  console.log('[Email] SMTP sending not implemented - use nodemailer in production');
+  logger.warn('SMTP sending not implemented - use nodemailer in production');
   return false;
 }
 
-async function sendWithConsole(params: SendEmailParams, config: EmailConfig): Promise<boolean> {
-  console.log('\n========== EMAIL (DEV MODE) ==========');
-  console.log('To:', params.to);
-  console.log('Subject:', params.subject);
-  console.log('--------------------------------------');
-  console.log(params.text || params.html.replace(/<[^>]*>/g, ''));
-  console.log('========================================\n');
+async function sendWithConsole(params: SendEmailParams, _config: EmailConfig): Promise<boolean> {
+  logger.debug('Email (DEV MODE)', {
+    to: params.to,
+    subject: params.subject,
+    body: params.text || params.html.replace(/<[^>]*>/g, ''),
+  });
   return true;
 }
 
@@ -113,7 +117,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
     return sendWithConsole(params, config);
   }
 
-  console.error('[Email] No email provider configured');
+  logger.error('No email provider configured');
   return false;
 }
 

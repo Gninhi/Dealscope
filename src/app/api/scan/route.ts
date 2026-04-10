@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-guard';
 import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse } from '@/lib/security';
 import { executeScan, type ScanInput } from '@/lib/services/scan.service';
-import { scanSchema } from '@/validators';
+import { scanSchema } from '@/lib/validators';
 
 // POST /api/scan — AI-powered company scanning
 export async function POST(request: NextRequest) {
@@ -30,13 +30,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { query, sector, icpProfileId, limit = 10 } = parsed.data;
+    const { query, sector, icpProfileId, model, limit = 10 } = parsed.data;
 
-    // The scan service handles search + company creation internally
     const result = await executeScan({
       query: query || undefined,
       sector: sector || undefined,
       icpProfileId: icpProfileId || undefined,
+      model: model || undefined,
       limit,
       workspaceId: authResult.workspaceId,
     });

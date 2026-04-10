@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Radar, Search, Loader2, Zap, CheckCircle, AlertCircle,
-  FileText, Sparkles
+Radar, Search, Loader2, Zap, CheckCircle, AlertCircle,
+FileText, Sparkles, Cpu
 } from 'lucide-react';
 import { useDealScopeStore } from '@/store/use-deal-scope-store';
 import { apiFetch } from '@/lib/api-client';
+import { ModelSelector } from '@/components/ui/model-selector';
+import { AVAILABLE_MODELS, DEFAULT_MODEL } from '@/lib/llm/types';
 
 interface ScanResult {
   success: boolean;
@@ -21,6 +23,7 @@ export default function ScanTab() {
   const [query, setQuery] = useState('');
   const [sector, setSector] = useState('');
   const [selectedIcp, setSelectedIcp] = useState('');
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [isScanning, setIsScanning] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState('');
@@ -49,6 +52,7 @@ export default function ScanTab() {
           query,
           sector,
           icpProfileId: selectedIcp || undefined,
+          model: selectedModel,
           limit: 15,
         }),
       });
@@ -114,22 +118,36 @@ export default function ScanTab() {
           </div>
 
           {/* ICP Profile */}
-          {icpProfiles.length > 0 && (
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Profil ICP (optionnel)</label>
-              <select
-                value={selectedIcp}
-                onChange={(e) => setSelectedIcp(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none"
-              >
-                <option value="">Aucun profil</option>
-                {icpProfiles.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+{icpProfiles.length > 0 && (
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">Profil ICP (optionnel)</label>
+            <select
+              value={selectedIcp}
+              onChange={(e) => setSelectedIcp(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none"
+            >
+              <option value="">Aucun profil</option>
+{icpProfiles.map((p: { id: string; name: string }) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+            </select>
+          </div>
+        )}
+
+        {/* Model Selector */}
+        <div>
+          <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+            <Cpu className="w-4 h-4" />
+            Modèle IA
+          </label>
+          <ModelSelector
+            models={AVAILABLE_MODELS}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+            className="w-full"
+          />
         </div>
+      </div>
 
         {/* Error */}
         {error && (

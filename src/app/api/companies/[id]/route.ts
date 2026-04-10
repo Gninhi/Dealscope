@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { updateCompanySchema } from '@/validators';
+import { updateCompanySchema } from '@/lib/validators';
 import { isAllowedUpdateField, ALLOWED_COMPANY_UPDATE_FIELDS } from '@/lib/validators';
 import { validateCsrf, safeErrorResponse, isValidId, getClientIp, isRateLimited, rateLimitedResponse, sanitizeInput } from '@/lib/security';
 

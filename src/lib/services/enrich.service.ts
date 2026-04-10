@@ -1,12 +1,12 @@
-// ─── Enrich Service ──────────────────────────────────────────────
-// Pure business logic for enriching company data from API Gouv + InfoGreffe.
-// No NextRequest/NextResponse dependencies.
-
 import { db } from '@/lib/db';
 import { getInfoGreffeBySiren, parseInfoGreffeFinancial } from '@/lib/api';
-import type { InfoGreffeRecord } from '@/lib/types';
-import { isValidCuid } from '@/validators';
-import { getEffectifFromTranche, getRegionName } from '@/lib/utils';
+import type { InfoGreffeRecord, CompanySearchResult } from '@/lib/types';
+import { isValidCuid } from '@/lib/validators';
+import { getEffectifFromTranche } from '@/lib/utils';
+import { EXTERNAL_URLS, TIMEOUTS } from '@/constants';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('EnrichService');
 
 // ── Batch enrich cooldown ──────────────────────────────────────
 export const MAX_BATCH_SIZE = 10;
@@ -31,28 +31,23 @@ export async function enrichCompany(id: string, workspaceId?: string): Promise<{
 
   // Appels API parallèles : API Gouv + InfoGreffe
   const [apiGouvRes, infoGreffeRes] = await Promise.allSettled([
-    // API Gouv : recherche par SIREN exact
-    fetch(`https://recherche-entreprises.api.gouv.fr/search?q=siren:${company.siren}`, {
+    fetch(`${EXTERNAL_URLS.API_GOUV_SEARCH}?q=siren:${company.siren}`, {
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(10000),
-    }).then(r => r.ok ? r.json() : null),
-    // InfoGreffe : lookup par SIREN
+      signal: AbortSignal.timeout(TIMEOUTS.API_GOUV_MS),
+    }).then(r => r.ok ? r.json() as Promise<{ results?: CompanySearchResult[] }> : null),
     getInfoGreffeBySiren(company.siren),
   ]);
 
-  // Parser API Gouv
-  let gouvResult: any = null;
-  if (apiGouvRes.status === 'fulfilled' && apiGouvRes.value) {
-    const data = apiGouvRes.value;
-    if (data.results?.[0]) {
-      gouvResult = data.results[0];
-    }
+  let gouvResult: CompanySearchResult | null = null;
+  if (apiGouvRes.status === 'fulfilled' && apiGouvRes.value?.results?.[0]) {
+    gouvResult = apiGouvRes.value.results[0];
   }
 
-  // Parser InfoGreffe
   let infogreffeRecord: InfoGreffeRecord | null = null;
   if (infoGreffeRes.status === 'fulfilled') {
     infogreffeRecord = infoGreffeRes.value;
+  } else {
+    logger.warn('InfoGreffe lookup failed for SIREN', { siren: company.siren });
   }
 
   // Extraire données financières InfoGreffe
@@ -233,11 +228,12 @@ export async function batchEnrich(forceAll: boolean, workspaceId?: string): Prom
         results.enriched++;
       } else {
         results.failed++;
+        logger.warn('Enrich failed for company', { id: comp.id, error: result.error });
       }
-      // Petit délai pour ne pas spammer les APIs
       await new Promise(r => setTimeout(r, 500));
-    } catch {
+    } catch (error) {
       results.failed++;
+      logger.error('Enrich error for company', error, { id: comp.id });
     }
   }
 

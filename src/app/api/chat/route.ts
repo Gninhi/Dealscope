@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-guard';
-import { chatMessageSchema } from '@/validators';
+import { chatMessageSchema } from '@/lib/validators';
 import { isRateLimited, validateCsrf, getClientIp, rateLimitedResponse, safeErrorResponse, sanitizeInput } from '@/lib/security';
-import { getGemma4 } from '@/lib/gemma4';
+import { getLLMProviderFactory } from '@/lib/llm';
+import { createLogger } from '@/lib/logger';
+import { PAGINATION } from '@/constants';
+
+const logger = createLogger('ChatRoute');
 
 // ─── Suggested Prompts ─────────────────────────────────────────────────────
 
@@ -43,7 +47,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { message } = parsed.data;
+    const { message, model } = parsed.data;
 
     // Sanitize message content before DB insert
     const sanitizedMessage = sanitizeInput(message, 4000);
@@ -58,11 +62,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const recentMessages = await db.chatMessage.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
+const recentMessages = await db.chatMessage.findMany({
+  where: { workspaceId },
+  orderBy: { createdAt: 'desc' },
+  take: PAGINATION.DEFAULT_PAGE_SIZE,
+});
 
     const contextMessages = recentMessages
       .reverse()
@@ -71,18 +75,19 @@ export async function POST(request: NextRequest) {
         content: m.content,
       }));
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
+const stream = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
 
-        try {
-          const gemma4 = getGemma4();
+      try {
+        const llmFactory = getLLMProviderFactory();
 
-          const result = await gemma4.chat(contextMessages, {
-            temperature: 0.7,
-          });
+        const result = await llmFactory.chat(contextMessages, {
+          model: model || llmFactory.getDefaultModel(),
+          temperature: 0.7,
+        });
 
-          const content = result.content;
+        const content = result.content;
 
           await db.chatMessage.create({
             data: {
@@ -98,14 +103,14 @@ export async function POST(request: NextRequest) {
             ),
           );
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        } catch (error) {
-          console.error('AI chat error:', error);
-          const errorMsg = 'Désolé, une erreur est survenue lors de la génération de la réponse.';
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: errorMsg })}\n\n`));
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        } finally {
-          controller.close();
-        }
+} catch (error) {
+    logger.error('AI chat generation failed', error);
+    const errorMsg = 'Désolé, une erreur est survenue lors de la génération de la réponse.';
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: errorMsg })}\n\n`));
+    controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+  } finally {
+    controller.close();
+  }
       },
     });
 
@@ -117,9 +122,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Chat error:', error);
-    return safeErrorResponse('Échec du chat', 500);
-  }
+  logger.error('Chat request failed', error);
+  return safeErrorResponse('Échec du chat', 500);
+}
 }
 
 // GET /api/chat
@@ -133,34 +138,37 @@ export async function GET(request: NextRequest) {
     return rateLimitedResponse();
   }
 
-  try {
-    const workspaceId = authResult.workspaceId;
-    const { searchParams } = new URL(request.url);
-    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '100', 10) || 100), 200);
-    const before = searchParams.get('before');
+try {
+  const workspaceId = authResult.workspaceId;
+  const { searchParams } = new URL(request.url);
+  const limit = Math.min(
+    Math.max(1, parseInt(searchParams.get('limit') || String(PAGINATION.CHAT_HISTORY_LIMIT), 10) || PAGINATION.CHAT_HISTORY_LIMIT),
+    PAGINATION.CHAT_HISTORY_MAX
+  );
+  const before = searchParams.get('before');
 
-    const where = { 
-      workspaceId,
-      ...(before ? { createdAt: { lt: new Date(before) } } : {})
-    };
+  const where = {
+    workspaceId,
+    ...(before ? { createdAt: { lt: new Date(before) } } : {})
+  };
 
-    const messages = await db.chatMessage.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
+  const messages = await db.chatMessage.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
 
-    const hasMore = messages.length === limit;
-    const nextCursor = messages.length > 0 ? messages[messages.length - 1].createdAt.toISOString() : null;
+  const hasMore = messages.length === limit;
+  const nextCursor = messages.length > 0 ? messages[messages.length - 1].createdAt.toISOString() : null;
 
-    return NextResponse.json({ 
-      messages: messages.reverse(), 
-      suggestedPrompts: SUGGESTED_PROMPTS,
-      hasMore,
-      nextCursor,
-    });
-  } catch (error) {
-    console.error('Error fetching chat history:', error);
-    return safeErrorResponse('Échec du chargement de l\'historique', 500);
-  }
+  return NextResponse.json({
+    messages: messages.reverse(),
+    suggestedPrompts: SUGGESTED_PROMPTS,
+    hasMore,
+    nextCursor,
+  });
+} catch (error) {
+  logger.error('Failed to fetch chat history', error);
+  return safeErrorResponse('Échec du chargement de l\'historique', 500);
+}
 }

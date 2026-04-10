@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader2, Bot, User, Trash2, Sparkles, Brain, Copy, Check, MessageSquare, ArrowRight } from 'lucide-react';
+import { Send, Loader2, Bot, User, Trash2, Sparkles, Brain, Copy, Check, MessageSquare, ArrowRight, Cpu } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ModelSelector } from '@/components/ui/model-selector';
 import { apiFetch } from '@/lib/api-client';
+import { AVAILABLE_MODELS, DEFAULT_MODEL } from '@/lib/llm/types';
 
 interface Message {
   id: string;
   role: string;
   content: string;
   createdAt: string;
+  model?: string;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -24,6 +27,7 @@ export default function ChatTab() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_MODEL);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -64,7 +68,6 @@ export default function ChatTab() {
 
   const handleSuggestedPrompt = (prompt: string) => {
     setInput(prompt);
-    // Focus the input
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
@@ -75,7 +78,6 @@ export default function ChatTab() {
     setInput('');
     setIsLoading(true);
 
-    // Add user message optimistically
     const optimisticUser: Message = {
       id: `temp-${Date.now()}`,
       role: 'user',
@@ -87,7 +89,10 @@ export default function ChatTab() {
     try {
       const res = await apiFetch('/api/chat', {
         method: 'POST',
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ 
+          message: userMessage,
+          model: selectedModel,
+        }),
       });
 
       if (!res.ok) throw new Error('Chat failed');
@@ -98,6 +103,7 @@ export default function ChatTab() {
       const decoder = new TextDecoder();
       let fullContent = '';
       let buffer = '';
+      let modelName = selectedModel;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -116,6 +122,9 @@ export default function ChatTab() {
               if (parsed.content) {
                 fullContent = parsed.content;
               }
+              if (parsed.model) {
+                modelName = parsed.model;
+              }
             } catch (e) {
               // Skip unparseable lines
             }
@@ -123,7 +132,6 @@ export default function ChatTab() {
         }
       }
 
-      // Update with the full assistant message
       if (fullContent) {
         setMessages(prev => {
           const filtered = prev.filter(m => m.id !== optimisticUser.id);
@@ -135,6 +143,7 @@ export default function ChatTab() {
               role: 'assistant',
               content: fullContent,
               createdAt: new Date().toISOString(),
+              model: modelName,
             },
           ];
         });
@@ -179,6 +188,7 @@ export default function ChatTab() {
     return;
   };
 
+  const selectedModelData = AVAILABLE_MODELS.find(m => m.id === selectedModel) || AVAILABLE_MODELS[0];
   const isEmpty = messages.length === 0 && !isLoading;
 
   return (
@@ -192,25 +202,41 @@ export default function ChatTab() {
           <div>
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <span>Chat IA</span>
-              <span className="text-base font-semibold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">— Gemma 4</span>
             </h2>
-            <p className="text-muted-foreground text-sm mt-0.5">Propulsé par Gemma 4</p>
+            <p className="text-muted-foreground text-sm mt-0.5 flex items-center gap-2">
+              <span>Propulsé par</span>
+              <span className="font-semibold text-indigo-400">{selectedModelData.name}</span>
+            </p>
           </div>
         </div>
-        <button
-          onClick={handleClear}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Effacer
-        </button>
+        
+        <div className="flex items-center gap-3">
+          {/* Model Selector */}
+          <div className="flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-muted-foreground" />
+            <ModelSelector
+              models={AVAILABLE_MODELS}
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+              compact
+              className="w-44"
+            />
+          </div>
+          
+          <button
+            onClick={handleClear}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Effacer
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto rounded-xl border border-border bg-card/30 backdrop-blur-sm p-4 space-y-4 custom-scrollbar mb-4">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-8">
-            {/* Gemma 4 branding icon */}
             <div className="relative mb-6">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 flex items-center justify-center">
                 <Brain className="w-10 h-10 text-indigo-400" />
@@ -220,13 +246,12 @@ export default function ChatTab() {
               </div>
             </div>
             <h3 className="text-xl font-semibold text-foreground mb-2">
-              DealScope IA — Gemma 4
+              DealScope IA
             </h3>
             <p className="text-sm text-muted-foreground max-w-md mb-8">
-              Votre assistant M&A intelligent propulsé par Gemma 4. Posez vos questions sur l&apos;analyse M&A, les entreprises cibles, les secteurs d&apos;activité...
+              Votre assistant M&A intelligent. Posez vos questions sur l'analyse M&A, les entreprises cibles, les secteurs d'activité...
             </p>
 
-            {/* Suggested prompts */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
               {SUGGESTED_PROMPTS.map((prompt, index) => (
                 <button
@@ -264,7 +289,6 @@ export default function ChatTab() {
                 >
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                 </div>
-                {/* Copy button for assistant messages */}
                 {msg.role === 'assistant' && (
                   <button
                     onClick={() => handleCopy(msg.content, msg.id)}
@@ -292,7 +316,6 @@ export default function ChatTab() {
             </div>
           ))
         )}
-        {/* Streaming indicator */}
         {isLoading && (
           <div className="flex gap-3 animate-fade-in-up">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0">
@@ -305,7 +328,7 @@ export default function ChatTab() {
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
-                <span className="text-sm text-muted-foreground">Gemma 4 analyse...</span>
+                <span className="text-sm text-muted-foreground">{selectedModelData.name} analyse...</span>
               </div>
             </div>
           </div>
